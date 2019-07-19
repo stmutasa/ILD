@@ -1,0 +1,46 @@
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/613/2/2 AXIAL SOFT TISSUE_16.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/676/2/3 Head 5.0  Axial_5.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/719/1/2 AXIAL SOFT TISSUE_7.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/789/2 Axial Soft Tissue_19.nii.gz
+30 Patients loaded, 1057 slices saved (1057 this protobuf)
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/Unknown3/1/3 Head 5.0  Axial_15.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/516/1/2 AXIAL SOFT TISSUE_114.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/631/4/3 Head 5.0  Axial_10.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/764/1/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial_1.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/708/2/3 Head 5.0  Axial_1.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/657/3/2 AXIAL SOFT TISSUE_8.nii.gz
+60 Patients loaded, 2142 slices saved (1085 this protobuf)
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/766/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial_3.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/522/2/2 AXIAL SOFT TISSUE AXIAL SOFT TISSUE Axial New Brain Head 5.0.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/773/1/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/802/1/3 SOFT TISSUE Head 5.0  Axial SOFT TISSUE.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/620/1/2 AXIAL SOFT TISSUE_49.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/788/1/2 Axial Soft Tissue_17.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/797/1/2 AXIAL SOFT TISSUE.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/758/1/4 Axial 5.000  Axial MPR Axial.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/682/1/3 Head 5.0  Axial.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/708/3/2 AXIAL SOFT TISSUE_5.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/787/2/2 Axial Soft Tissue_5.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/630/1/3 Head 5.0  Axial_3.nii.gz
+90 Patients loaded, 3194 slices saved (2109 this protobuf)
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/741/2/3 SOFT TISSUE Head 5.0  Axial SOFT TISSUE.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/683/2/2 AXIAL SOFT TISSUE_18.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/734/1/3 Head 5.0  Axial.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/595/1/3 Head 5.0  Axial_12.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/738/2 AXIAL SOFT TISSUE_36.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/726/2/2 AXIAL SOFT TISSUE_22.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/605/1/2 AXIAL SOFT TISSUE_106.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/768/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial_4.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/774/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial_10.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/625/2/3 Head 5.0  Axial_13.nii.gz
+120 Patients loaded, 4310 slices saved (2201 this protobuf)
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/638/1/2 AXIAL SOFT TISSUE_14.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/769/3 VOL SOFT Axial 5.000  AXIAL SOFT TISSUE MPR Axial_5.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/599/1/2 AXIAL SOFT TISSUE_115.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/628/1/3 Head 5.0  Axial_7.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/313/2/2 AXIAL SOFT TISSUE_39.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/733/3/3 Head 5.0  Axial_1.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/607/1/2 AXIAL SOFT TISSUE_2.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/789/2/2 Axial Soft Tissue_20.nii.gz
+Unable to load:  /home/stmutasa/PycharmProjects/Datasets/HeadCT_Edema/719/2/2 AXIAL SOFT TISSUE.nii.gz
+139 Total patients loaded, 4971 total slices. Final protobuf: 661 slices
