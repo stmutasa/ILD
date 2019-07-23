@@ -12,7 +12,7 @@ import SOD_Display as SDD
 from pathlib import Path
 from distutils.util import strtobool
 from random import shuffle
-import matplotlib
+import matplotlib.pyplot as plt
 
 # Define the flags class for variables
 FLAGS = tf.app.flags.FLAGS
@@ -37,9 +37,14 @@ def pre_proc_25D(slice_gap=2, dims=256):
     filenames = sdl.retreive_filelist('*', path=home_dir, include_subfolders=True)
     shuffle(filenames)
 
+    # retrieve the labels
+    label_file = sdl.retreive_filelist('csv', path=home_dir, include_subfolders=True)[0]
+    labels = sdl.load_CSV_Dict('Accno', label_file)
+
     # global variables
     index, pts, per = 0, 0, 0
     data = {}
+    display = []
 
     # Loop through all the files
     for file in filenames:
@@ -50,27 +55,64 @@ def pre_proc_25D(slice_gap=2, dims=256):
             print ('Unable to load: ', file)
             continue
 
+        # Retreive pt info
+        Accno = header['tags'].AccessionNumber
+        MRN = header['tags'].PatientID
+        label_raw = int(labels[Accno]['Label'])
+
+        # Fix labels per Hiram
+        if label_raw < 2: label = 1
+        else: label = 0
+
+        # Resize the volume
+        if volume.shape[1] != 256:
+            volume = sdl.resize_volume(volume, np.int16)
+
         # Generate a lung mask
         mask = sdl.create_lung_mask(volume)
 
+        # window the lungs
+        volume = sdl.window_image(volume, -600, 750)
+
+        # Calculate the superior extent of the mask
+        for slice in range(mask.shape[0]):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                sup = slice
+                break
+
+        # Calculate inferior extent
+        for slice in range(mask.shape[0] - 1, 0, -1):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                inf = slice
+                break
+
+        # Find the thirds
+        total = inf - sup
+
+        # Save the segments
+        apical = volume[int(sup + (total/3)//2)]
+        midlung = volume[int(sup + (2*total//3 - total/3//2))]
+        lungbase = volume[int(sup + (total - total/3//2))]
+
+        # Images
+        image = np.stack([apical, midlung, lungbase], -1)
+
+        index += 1
+        pts += 1
+
+        # Save the data
+        data[index] = {'data', image.astype(np.int16), 'label', label, 'label_raw', label_raw, 'accno', Accno, 'MRN', MRN, 'file', file}
+
         # TODO: Testing
-        sdd.display_volume(volume)
-        sdd.display_volume(mask)
-        sdd.display_vol_label_overlay(volume, mask, title='Test', display_non=True, plot=True)
+        display.extend([apical, midlung, lungbase])
+        if index > 5: break
 
-        # Apply a lung mask overlay
-        overlay = np.zeros([mask.shape[0], mask.shape[1], mask.shape[2], 3], np.float32)
-        for z in range(volume.shape[0]): overlay[z] = sdl.display_overlay(volume[z], mask[z])
-
-        # TODO: Testing
-        sdl.display_volume(volume)
-        sdl.display_volume(overlay)
-        print (volume.shape, spacing)
-
-    #     # Window the volume and center it at 0
-    #     volume = sdl.window_image(volume, 40, 20)
-    #     volume -= 40
-    #
     #     # Generate labels, hemorrhage = 1, edema = 2, other = 3
     #     segments = bleed_segment + edema_segment
     #     segments [segments>2] = 1
@@ -132,7 +174,7 @@ def pre_proc_25D(slice_gap=2, dims=256):
     # # Finished with all the patients
     # if len(data)>0: sdl.save_tfrecords(data, 1, 'data/EdemaFin')
     # print ('%s Total patients loaded, %s total slices. Final protobuf: %s slices' %(pts, index, len(data)))
-    sdd.display_volume(volume, True)
+    sdd.display_volume(display, True)
 
 
 # Load the protobuf
