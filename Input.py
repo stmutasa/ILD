@@ -24,7 +24,7 @@ sdl = SDL.SODLoader(data_root=home_dir)
 sdd = SDD.SOD_Display()
 
 # For loading the files for a 2.5 D network
-def pre_proc_25D(slice_gap=2, dims=256):
+def pre_proc_25D(dims=512):
 
     """
     Loads the CT data into a tfrecords file
@@ -44,29 +44,46 @@ def pre_proc_25D(slice_gap=2, dims=256):
     # global variables
     index, pts, per = 0, 0, 0
     data = {}
-    display = []
+    display, failures = [], [0, 0, 0]
 
     # Loop through all the files
     for file in filenames:
 
         # Now load the volumes
-        try: volume, orig, spacing, _, header = sdl.load_DICOM_3D(file, return_header=True)
+        try: volume, orig, spacing, _, header = sdl.load_DICOM_3D(file, return_header=True, sort='Lung', display=True)
         except:
-            print ('Unable to load: ', file)
+            print ('Unable to load: ', file, '\n')
+            failures[2] +=1
             continue
 
         # Retreive pt info
         Accno = header['tags'].AccessionNumber
         MRN = header['tags'].PatientID
-        label_raw = int(labels[Accno]['Label'])
+        try: label_raw = int(labels[Accno]['Label'])
+        except:
+            failures[0] +=1
+            del volume
+            continue
 
         # Fix labels per Hiram
         if label_raw < 2: label = 1
-        else: label = 0
+        elif label_raw == 3: label = 0
+        else:
+            failures[1] += 1
+            del volume
+            continue
+
+        # Display volumes accidentally loaded as coronal
+        if volume.shape[1] != volume.shape[2]: print('\n ********* Pt %s weird shaped %s\n' % (Accno, volume.shape))
+
+        # TODO: Testing
+        print(volume.shape, Accno, MRN, label_raw, label)
+        # volume = sdl.window_image(volume, -600, 750)
+        # sdd.display_volume(volume, True)
 
         # Resize the volume
-        if volume.shape[1] != 256:
-            volume = sdl.resize_volume(volume, np.int16)
+        if volume.shape[1] != dims:
+            volume = sdl.resize_volume(volume, np.int16, dims, dims)
 
         # Generate a lung mask
         mask = sdl.create_lung_mask(volume)
@@ -92,184 +109,198 @@ def pre_proc_25D(slice_gap=2, dims=256):
                 inf = slice
                 break
 
-        # Find the thirds
+        # Find the middle of the thirds
         total = inf - sup
+        apex = sup + (total / 3) // 2
+        mid = sup + (2 * total // 3 - total / 3 // 2)
+        lower = sup + (total - total / 3 // 2)
+        spacing = total/3/2//10
 
-        # Save the segments
-        apical = volume[int(sup + (total/3)//2)]
-        midlung = volume[int(sup + (2*total//3 - total/3//2))]
-        lungbase = volume[int(sup + (total - total/3//2))]
+        # Create the empty arrays we will fill
+        apical = np.zeros(shape=[10, dims, dims], dtype=np.int16)
+        midlung, lungbase = np.zeros_like(apical), np.zeros_like(apical)
+
+        # Now save the segments. Loop every 3 slices
+        for z in range (10):
+
+            # Apical segment, start at -spacing
+            apical_start = int((apex-spacing) + (z*spacing))
+            apical[z] = volume[apical_start]
+
+            # Midlung segment, start at -spacing*5
+            midlung_start = int((mid - spacing*5) + (z * spacing))
+            midlung[z] = volume[midlung_start]
+
+            # Apical segment, start at -spacing*8
+            base_start = int((lower - spacing*8) + (z * spacing))
+            lungbase[z] = volume[base_start]
 
         # Images
         image = np.stack([apical, midlung, lungbase], -1)
 
+        # Save the data
+        data[index] = {'data': image, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN, 'file': file}
         index += 1
         pts += 1
 
-        # Save the data
-        data[index] = {'data', image.astype(np.int16), 'label', label, 'label_raw', label_raw, 'accno', Accno, 'MRN', MRN, 'file', file}
+        # Garbage
+        del volume, mask, image, apical, midlung, lungbase
 
-        # TODO: Testing
-        display.extend([apical, midlung, lungbase])
-        if index > 5: break
+        # # TODO: Testing
+        # for z in range(3): sdd.display_volume(image[..., z], False)
+        # if pts > 3: break
 
-    #     # Generate labels, hemorrhage = 1, edema = 2, other = 3
-    #     segments = bleed_segment + edema_segment
-    #     segments [segments>2] = 1
-    #
-    #     # Loop through the image volume
-    #     for z in range (volume.shape[0]):
-    #
-    #         # Calculate a scaled slice shift
-    #         sz = 1
-    #
-    #         # Skip very bottom and very top of image
-    #         if ((z-3*sz) < 0) or ((z+3*sz) > volume.shape[0]): continue
-    #
-    #         # Label is easy, just save the slice
-    #         data_label = sdl.zoom_2D(segments[z].astype(np.int16), (dims, dims))
-    #
-    #         # Generate the empty data array
-    #         data_image = np.zeros(shape=[5, dims, dims], dtype=np.int16)
-    #
-    #         # Set starting point
-    #         zs = z - (2*sz)
-    #
-    #         # Save 5 slices with shift Sz
-    #         for s in range(5): data_image[s, :, :] = sdl.zoom_2D(volume[zs+(s*sz)].astype(np.int16), [dims, dims])
-    #
-    #         # If there is label here, save more the slices
-    #         sum_check = np.sum(np.squeeze(data_label > 0).astype(np.uint8))
-    #         if sum_check > 5: num_egs = 2
-    #         else: num_egs = 1
-    #
-    #         for _ in range(num_egs):
-    #
-    #             # Save the dictionary: int16, int16, int, int
-    #             data[index] = {'image_data': data_image, 'label_data': data_label, 'patient': patient, 'slice': z, 'study': study}
-    #
-    #             # Finished with this slice
-    #             index += 1
-    #
-    #         # Garbage collection
-    #         del data_label, data_image
-    #
-    #     # Finished with all of this patients embolisms
-    #     pts += 1
-    #
-    #     # Save every 7 patients
-    #     if pts %30 == 0:
-    #
-    #         # Counters
-    #         per = index-per
-    #
-    #         print ('%s Patients loaded, %s slices saved (%s this protobuf)' %(pts, index, per))
-    #
-    #         sdl.save_tfrecords(data, 1, 0, file_root=('data/Edema%s' %int(pts/30)))
-    #         if pts < 35: sdl.save_dict_filetypes(data[0])
-    #
-    #         del data
-    #         data = {}
-    #
-    # # Finished with all the patients
-    # if len(data)>0: sdl.save_tfrecords(data, 1, 'data/EdemaFin')
-    # print ('%s Total patients loaded, %s total slices. Final protobuf: %s slices' %(pts, index, len(data)))
-    sdd.display_volume(display, True)
+        # Save every 20 patients
+        if pts % 40 == 0:
+            print('%s patients complete, %s images saved' % (pts, index))
+            file_root = ('data/Egs_' + str(pts // 40))
+            sdl.save_tfrecords(data, 1, file_root=file_root)
+            if pts < 45: sdl.save_dict_filetypes(data[0])
+            del data
+            data = {}
+
+        # All patients done, print the summary message
+    print('%s Patients saved, %s failed[No label, Label out of range, Failed load] %s' % (pts, sum(failures), failures))
+
+    # Now create a final protocol buffer
+    print('Creating final protocol buffer')
+    if data:
+        print('%s patients complete, %s images saved' % (pts, index))
+        sdl.save_tfrecords(data, 1, file_root='data/Egs_Fin')
+
+    # plt.show()
 
 
 # Load the protobuf
-def load_protobuf():
+def load_protobuf(filenames, training=True):
 
     """
     Loads the protocol buffer into a form to send to shuffle
     """
 
-    # Load all the filenames in glob
-    filenames1 = sdl.retreive_filelist('tfrecords', False, path='data/')
-    filenames = []
+    # Create a dataset from the protobuf
+    dataset = tf.data.TFRecordDataset(filenames)
 
-    # Define the filenames to remove
-    for i in range (0, len(filenames1)):
-        if FLAGS.test_files not in filenames1[i]:
-            filenames.append(filenames1[i])
+    _records_call = lambda dataset: \
+        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.float32)
 
-    # Show the file names
-    print('Training files: %s' % filenames)
+    # Parse the record into tensors
+    dataset = dataset.map(_records_call, num_parallel_calls=6)
 
-    # now load the remaining files
-    data = sdl.load_tfrecords(filenames, FLAGS.box_dims, tf.int16, z_dim=5, segments='label_data')
+    # Warp the data set
+    scope = 'data_augmentation' if training else 'input'
+    with tf.name_scope(scope):
+        dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=6)
 
-    print (data['image_data'], data['label_data'])
+    # Repeat input indefinitely
+    dataset = dataset.repeat()
 
-    # Image augmentation. First calc rotation parameters
-    angle = tf.random_uniform([1], -0.52, 0.52)
-    data['image_data'] = tf.add(data['image_data'], 200.0)
+    # Shuffle the dataset then create a batch
+    dataset = dataset.shuffle(buffer_size=100)
+    dataset = dataset.batch(FLAGS.batch_size)
 
-    # Random rotate
-    data['image_data'] = tf.contrib.image.rotate(data['image_data'], angle)
-    data['label_data'] = tf.contrib.image.rotate(data['label_data'], angle)
+    # Make an initializable iterator
+    iterator = dataset.make_initializable_iterator()
 
-    # Return image to center
-    data['image_data'] = tf.subtract(data['image_data'], 200.0)
-
-    # Random gaussian noise
-    data['image_data'] = tf.image.random_brightness(data['image_data'], max_delta=5)
-    data['image_data'] = tf.image.random_contrast(data['image_data'], lower=0.95, upper=1.05)
-
-    # Reshape image
-    data['image_data'] = tf.image.resize_images(data['image_data'], [FLAGS.network_dims, FLAGS.network_dims])
-    data['label_data'] = tf.image.resize_images(data['label_data'], [FLAGS.network_dims, FLAGS.network_dims])
-
-    # For noise, first randomly determine how 'noisy' this study will be
-    T_noise = tf.random_uniform([1], 0, FLAGS.noise_threshold)
-
-    # Create a poisson noise array
-    noise = tf.random_uniform(shape=[5, FLAGS.network_dims, FLAGS.network_dims, 1], minval=-T_noise, maxval=T_noise)
-
-    # Add the gaussian noise
-    data['image_data'] = tf.add(data['image_data'], tf.cast(noise, tf.float32))
-
-    # Display the images
-    tf.summary.image('Train IMG', tf.reshape(data['image_data'][2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-    tf.summary.image('Train Label IMG', tf.reshape(data['label_data'], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+    # Retreive the batch
+    examples = iterator.get_next()
 
     # Return data as a dictionary
-    return sdl.randomize_batches(data, FLAGS.batch_size)
+    return examples, iterator
 
+class DataPreprocessor(object):
 
-# Load the validation set
-def load_validation():
-    """
-    Loads the protocol buffer into a form to send to shuffle
-    :param
-    :return:
-    """
+    # Applies transformations to dataset
 
-    # Load all the filenames in glob
-    filenames1 = sdl.retreive_filelist('tfrecords', False, path='data/')
-    filenames = []
+  def __init__(self, distords):
+    self._distords = distords
 
-    # Define the filenames to remove
-    for i in range(0, len(filenames1)):
-        if FLAGS.test_files in filenames1[i]:
-            filenames.append(filenames1[i])
+  def __call__(self, record):
 
-    # Show the file names
-    print('Testing files: %s' % filenames)
+    """Process img for training or eval."""
+    apex, midlung, base = record['data'][...,0], record['data'][...,1], record['data'][...,2]
 
-    # now load the remaining files
-    data = sdl.load_tfrecords(filenames, FLAGS.box_dims, tf.int16, z_dim=5, segments='label_data')
+    if self._distords:  # Training
 
-    # Reshape image
-    data['image_data'] = tf.image.resize_images(data['image_data'], [FLAGS.network_dims, FLAGS.network_dims])
-    data['label_data'] = tf.image.resize_images(data['label_data'], [FLAGS.network_dims, FLAGS.network_dims])
+        # Data Augmentation ------------------ Contrast, brightness, noise, rotate, shear, crop, flip
 
-    # Display the images
-    tf.summary.image('Test IMG', tf.reshape(data['image_data'][2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-    tf.summary.image('Test Label IMG', tf.reshape(data['label_data'], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        # Generate random slices to use
+        slice_a = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
+        slice_m = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
+        slice_b = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
 
-    # Return data as a dictionary
-    return sdl.val_batches(data, FLAGS.batch_size)
+        # Apply the slices
+        apex, midlung, base = tf.squeeze(apex[slice_a]), tf.squeeze(midlung[slice_m]), tf.squeeze(base[slice_b])
 
+        # Stack the results on a per channel basis
+        image = tf.stack([apex, midlung, base], -1)
 
-pre_proc_25D()
+        # Now normalize
+        image = tf.image.per_image_standardization(image)
+
+        # Image augmentation. First calc rotation parameters
+        angle = tf.random_uniform([1], -0.35, 0.35)
+
+        # Random rotate
+        image = tf.contrib.image.rotate(image, angle)
+
+        # Then randomly flip
+        image = tf.image.random_flip_left_right(tf.image.random_flip_up_down(image))
+
+        # Random brightness/contrast
+        image = tf.image.random_brightness(image, max_delta=1.5)
+        image = tf.image.random_contrast(image, lower=0.95, upper=1.05)
+
+        # Random center crop
+        image = tf.image.central_crop(image, 0.8)
+
+        # Reshape image
+        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims])
+
+        # For noise, first randomly determine how 'noisy' this study will be
+        T_noise = tf.random_uniform([1], 0, 0.1)
+
+        # Create a poisson noise array
+        noise = tf.random_uniform(shape=[FLAGS.network_dims, FLAGS.network_dims, 3], minval=-T_noise, maxval=T_noise)
+
+        # Add the poisson noise
+        image = tf.add(image, tf.cast(noise, tf.float32))
+
+        # Display the images
+        tf.summary.image('Apex Train', tf.reshape(image[..., 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Midlung Train', tf.reshape(image[..., 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Base Train', tf.reshape(image[..., 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+
+    else: # Validation
+
+        # Generate random slices to use
+        slice_a = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
+        slice_m = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
+        slice_b = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
+
+        # Apply the slices
+        apex, midlung, base = tf.squeeze(apex[slice_a]), tf.squeeze(midlung[slice_m]), tf.squeeze(base[slice_b])
+
+        # Stack the results on a per channel basis
+        image = tf.stack([apex, midlung, base], -1)
+
+        # Now normalize
+        image = tf.image.per_image_standardization(image)
+
+       # Center crop
+        image = tf.image.central_crop(image, 0.85)
+
+        # Reshape image
+        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims, 3])
+
+        # Display the images
+        tf.summary.image('Apex Val', tf.reshape(image[..., 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Midlung Val', tf.reshape(image[..., 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Base Val', tf.reshape(image[..., 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+
+    # Make record image
+    record['data'] = image
+
+    return record
+
+#pre_proc_25D()

@@ -12,6 +12,10 @@ import ILDModel as network
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import SODLoader as SDL
+from pathlib import Path
+
+sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
 
 # Define flags
 FLAGS = tf.app.flags.FLAGS
@@ -19,16 +23,14 @@ FLAGS = tf.app.flags.FLAGS
 # Define some of the data variables
 tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
-tf.app.flags.DEFINE_string('test_files', '1', """Testing files""")
-tf.app.flags.DEFINE_integer('box_dims', 256, """dimensions to save files""")
+tf.app.flags.DEFINE_string('test_files', '_9', """Testing files""")
+tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions to save files""")
 tf.app.flags.DEFINE_integer('network_dims', 128, """Center: 80/208 for 128/256""")
-tf.app.flags.DEFINE_integer('slice_gap', 2, """Slice spacing for pre processing in mm""")
-tf.app.flags.DEFINE_float('noise_threshold', 10, 'Amount of Gaussian noise to apply')
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_epochs', 300, """Number of epochs to run""")
-tf.app.flags.DEFINE_integer('epoch_size', 15000, """How many examples""")
+tf.app.flags.DEFINE_integer('epoch_size', 2000, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 32, """Number of images to process in a batch.""")
@@ -37,8 +39,7 @@ tf.app.flags.DEFINE_integer('batch_size', 32, """Number of images to process in 
 tf.app.flags.DEFINE_float('dropout_factor', 0.75, """ Keep probability""")
 tf.app.flags.DEFINE_float('l2_gamma', 1e-5, """ The gamma value for regularization loss""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the moving average tracker""")
-tf.app.flags.DEFINE_float('loss_factor',3.0, """The loss weighting factor""")
-tf.app.flags.DEFINE_float('dice_threshold', 1.0, """ The threshold value to declare no PE""")
+tf.app.flags.DEFINE_float('loss_factor',1.0, """The loss weighting factor""")
 
 # Hyperparameters to control the optimizer
 tf.app.flags.DEFINE_float('learning_rate',1e-3, """Initial learning rate""")
@@ -47,7 +48,7 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'ResExt/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'First_run/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 def train():
@@ -55,18 +56,23 @@ def train():
     # Makes this the default graph where all ops will be added
     with tf.Graph().as_default(), tf.device('/gpu:' + str(FLAGS.GPU)):
 
-        # Load the images and labels.
-        data, _ = network.inputs(skip=True)
+        # Use a placeholder for the filenames
+        filenames = tf.placeholder(tf.string, shape=[None])
 
         # Define phase of training
         phase_train = tf.placeholder(tf.bool)
 
+        # Load the images and labels.
+        data, iterator = network.inputs(filenames, training=True, skip=True)
+
+        # Define input shape
+        data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
+
         # Perform the forward pass:
-        if FLAGS.network_dims==128: logits, l2loss = network.forward_pass_res(data['image_data'], phase_train=phase_train)
-        else: logits, l2loss = network.forward_pass_peter_256(data['image_data'], phase_train=phase_train)
+        logits, l2loss = network.forward_pass(data['data'], phase_train=phase_train)
 
         # Calculate loss
-        SCE_loss = network.total_loss(logits, data['label_data'], loss_type='DICE')
+        SCE_loss = network.total_loss(logits, data['label'])
 
         # Add the L2 regularization loss
         loss = tf.add(SCE_loss, l2loss, name='TotalLoss')
@@ -107,8 +113,16 @@ def train():
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as mon_sess:
 
+            # Define filenames
+            all_files = sdl.retreive_filelist('tfrecords', False, path='data/')
+            train_files = [x for x in all_files if FLAGS.test_files not in x]
+            valid_files = [x for x in all_files if FLAGS.test_files  in x]
+
             # Initialize the variables
             mon_sess.run(var_init)
+
+            # Initialize iterator
+            mon_sess.run(iterator.initializer, feed_dict={filenames: train_files})
 
             # Initialize the handle to the summary writer in our training directory
             summary_writer = tf.summary.FileWriter(FLAGS.train_dir + FLAGS.RunInfo, mon_sess.graph)
@@ -116,60 +130,67 @@ def train():
             # Initialize the step counter
             timer = 0
 
-            # Use slim to handle queues:
-            with slim.queues.QueueRunners(mon_sess):
-                for i in range(max_steps):
+            # Latest:
+            # # TODO: Testing
+            #     sess = tf.InteractiveSession()
+            #     batch = iterator.get_next()
+            #     sess.run(iterator.initializer, feed_dict={filenames: train_files})
+            #     output = sess.run(batch)
+            #     sdd.display_volume(output['data'][...,1], plot=True)
 
-                    # Run and time an iteration
-                    start = time.time()
-                    mon_sess.run(train_op, feed_dict={phase_train: True})
-                    timer += (time.time() - start)
+            # No queues!
+            for i in range(max_steps):
 
-                    # Calculate current epoch
+                # Run and time an iteration
+                start = time.time()
+                mon_sess.run(train_op, feed_dict={phase_train: True})
+                timer += (time.time() - start)
+
+                # Calculate current epoch
+                Epoch = int((i * FLAGS.batch_size) / FLAGS.epoch_size)
+
+                # Console and Tensorboard print interval
+                if i % print_interval == 0:
+
+                    # First retreive the loss values
+                    l2, sce, tot = mon_sess.run([l2loss, SCE_loss, loss], feed_dict={phase_train: True})
+                    tot *= 1e6
+                    l2 *= 1e6
+                    sce *= 1e6
+
+                    # Get timing stats
+                    elapsed = timer/print_interval
+                    timer = 0
+
+                    # Calc epoch
                     Epoch = int((i * FLAGS.batch_size) / FLAGS.epoch_size)
 
-                    # Console and Tensorboard print interval
-                    if i % print_interval == 0:
+                    # Now print the loss values
+                    print ('-'*70)
+                    print('Epoch: %s, Time: %.1f sec, L2 Loss: %.4f, Cross Entropy: %.4f, Total Loss (ppm): %.4f, Eg/s: %.4f, Seconds Per: %.4f'
+                          % (Epoch, elapsed, l2, sce, tot, FLAGS.batch_size/elapsed, elapsed/FLAGS.batch_size))
 
-                        # First retreive the loss values
-                        l2, sce, tot = mon_sess.run([l2loss, SCE_loss, loss], feed_dict={phase_train: True})
-                        tot *= 1e6
-                        l2 *= 1e6
-                        sce *= 1e6
+                    # Run a session to retrieve our summaries
+                    summary = mon_sess.run(all_summaries, feed_dict={phase_train: True})
 
-                        # Get timing stats
-                        elapsed = timer/print_interval
-                        timer = 0
+                    # Add the summaries to the protobuf for Tensorboard
+                    summary_writer.add_summary(summary, i)
 
-                        # Calc epoch
-                        Epoch = int((i * FLAGS.batch_size) / FLAGS.epoch_size)
+                    # Timer
+                    start_time = time.time()
 
-                        # Now print the loss values
-                        print ('-'*70)
-                        print('Epoch: %s, Time: %.1f sec, L2 Loss: %.4f, Cross Entropy: %.4f, Total Loss (ppm): %.4f, Eg/s: %.4f, Seconds Per: %.4f'
-                              % (Epoch, elapsed, l2, sce, tot, FLAGS.batch_size/elapsed, elapsed/FLAGS.batch_size))
+                if i % checkpoint_interval == 0:
 
-                        # Run a session to retrieve our summaries
-                        summary = mon_sess.run(all_summaries, feed_dict={phase_train: True})
+                    print('-' * 70, '\nSaving... GPU: %s, File:%s' % (FLAGS.GPU, FLAGS.RunInfo[:-1]))
 
-                        # Add the summaries to the protobuf for Tensorboard
-                        summary_writer.add_summary(summary, i)
+                    # Define the filename
+                    file = ('Epoch_%s' % Epoch)
 
-                        # Timer
-                        start_time = time.time()
+                    # Define the checkpoint file:
+                    checkpoint_file = os.path.join(FLAGS.train_dir + FLAGS.RunInfo, file)
 
-                    if i % checkpoint_interval == 0:
-
-                        print('-' * 70, '\nSaving... GPU: %s, File:%s' % (FLAGS.GPU, FLAGS.RunInfo[:-1]))
-
-                        # Define the filename
-                        file = ('Epoch_%s' % Epoch)
-
-                        # Define the checkpoint file:
-                        checkpoint_file = os.path.join(FLAGS.train_dir + FLAGS.RunInfo, file)
-
-                        # Save the checkpoint
-                        saver.save(mon_sess, checkpoint_file)
+                    # Save the checkpoint
+                    saver.save(mon_sess, checkpoint_file)
 
 
 def main(argv=None):  # pylint: disable=unused-argument
