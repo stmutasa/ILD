@@ -182,7 +182,7 @@ def load_protobuf(filenames, training=True):
     dataset = tf.data.TFRecordDataset(filenames)
 
     _records_call = lambda dataset: \
-        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.float32)
+        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
 
     # Parse the record into tensors
     dataset = dataset.map(_records_call, num_parallel_calls=6)
@@ -303,4 +303,16 @@ class DataPreprocessor(object):
 
     return record
 
-#pre_proc_25D()
+# pre_proc_25D()
+# filenames = tf.placeholder(tf.string, shape=[None])
+# load_protobuf(filenames)
+
+    # # TODO: Testing
+    # all_files = sdl.retreive_filelist('tfrecords', False, path='data/')
+    # train_files = [x for x in all_files if '_9' not in x]
+    # sess = tf.InteractiveSession()
+    # batch = iterator.get_next()
+    # sess.run(iterator.initializer, feed_dict={filenames: train_files})
+    # output = sess.run(batch)
+    # test_img = output['data'][4, :, :, :, 1]
+    # sdd.display_volume(test_img, plot=True)

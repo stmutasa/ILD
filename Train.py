@@ -32,7 +32,7 @@ tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 tf.app.flags.DEFINE_integer('num_epochs', 300, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('epoch_size', 2000, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
-tf.app.flags.DEFINE_integer('checkpoint_interval', 50, """How many Epochs to wait before saving a checkpoint""")
+tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 32, """Number of images to process in a batch.""")
 
 # Hyperparameters:
@@ -114,7 +114,7 @@ def train():
         with tf.Session(config=config) as mon_sess:
 
             # Define filenames
-            all_files = sdl.retreive_filelist('tfrecords', False, path='data/')
+            all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
             train_files = [x for x in all_files if FLAGS.test_files not in x]
             valid_files = [x for x in all_files if FLAGS.test_files  in x]
 
@@ -129,14 +129,6 @@ def train():
 
             # Initialize the step counter
             timer = 0
-
-            # Latest:
-            # # TODO: Testing
-            #     sess = tf.InteractiveSession()
-            #     batch = iterator.get_next()
-            #     sess.run(iterator.initializer, feed_dict={filenames: train_files})
-            #     output = sess.run(batch)
-            #     sdd.display_volume(output['data'][...,1], plot=True)
 
             # No queues!
             for i in range(max_steps):
