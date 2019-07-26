@@ -11,8 +11,8 @@ import time
 import ILDModel as network
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
 import SODLoader as SDL
+import SODTester as SDT
 from pathlib import Path
 
 sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
@@ -100,6 +100,9 @@ def train():
         # Initialize the saver
         saver = tf.train.Saver(var_restore, max_to_keep=4)
 
+        # Tester instance
+        sdt = SDT.SODTester(False, False)
+
         # -------------------  Session Initializer  ----------------------
 
         # Set the intervals
@@ -128,7 +131,7 @@ def train():
             summary_writer = tf.summary.FileWriter(FLAGS.train_dir + FLAGS.RunInfo, mon_sess.graph)
 
             # Initialize the step counter
-            timer = 0
+            step, timer = 0, 0
 
             # No queues!
             for i in range(max_steps):

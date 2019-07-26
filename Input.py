@@ -2,17 +2,13 @@
 Load and preprocess the files to a protobuff
 """
 
-import os
-
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
 import SOD_Display as SDD
 
 from pathlib import Path
-from distutils.util import strtobool
 from random import shuffle
-import matplotlib.pyplot as plt
 
 # Define the flags class for variables
 FLAGS = tf.app.flags.FLAGS
