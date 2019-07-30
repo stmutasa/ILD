@@ -8,7 +8,7 @@ import os
 import time                                 # to retreive current time
 import numpy as np
 
-import BreastMatrix
+import ILDModel as network
 import tensorflow as tf
 import SODTester as SDT
 import SODLoader as SDL
@@ -25,9 +25,10 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
+tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
 tf.app.flags.DEFINE_string('test_files', '_9', """Files for testing have this name""")
-tf.app.flags.DEFINE_integer('box_dims', 256, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the input pictures""")
 
 # >5k example lesions total
@@ -64,18 +65,18 @@ def test():
         phase_train = tf.placeholder(tf.bool)
 
         # Get a dictionary of our images, id's, and labels from the iterator
-        examples, iterator = BreastMatrix.inputs(filenames, True, skip=True)
+        examples, iterator = network.inputs(filenames, True, skip=True)
 
         # Define input shape
         examples['data'] = tf.reshape(examples['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
 
         # Display the images
-        tf.summary.image('Apex Val', tf.reshape(examples['data'][0, :, :, 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Base Val', tf.reshape(examples['data'][0, :, :, 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
         tf.summary.image('Mid Val', tf.reshape(examples['data'][0, :, :, 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Base Val', tf.reshape(examples['data'][0, :, :, 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Apex Val', tf.reshape(examples['data'][0, :, :, 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
 
         # Build a graph that computes the prediction from the inference model (Forward pass)
-        logits, l2loss = BreastMatrix.forward_pass(examples['data'], phase_train=phase_train)
+        logits, l2loss = network.forward_pass(examples['data'], phase_train=phase_train)
 
         # Labels
         labels = examples['label']
@@ -183,7 +184,7 @@ def test():
                     mon_sess.close()
 
             # Break if this is the final checkpoint
-            if '149' in Epoch: break
+            if '299' in Epoch: break
 
             # Print divider
             print('-' * 70)
@@ -204,7 +205,7 @@ def test():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(60)
+    time.sleep(0)
     if tf.gfile.Exists('testing/'):
         tf.gfile.DeleteRecursively('testing/')
     tf.gfile.MakeDirs('testing/')
