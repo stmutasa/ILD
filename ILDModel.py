@@ -46,6 +46,7 @@ def forward_pass(images, phase_train):
 
     # Convolutional layers
     conv = sdn.residual_layer('Residual1', conv, 3, 32, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual1b', conv, 3, 32, 1, phase_train=phase_train)
     conv = sdn.residual_layer('Residual2', conv, 3, 64, phase_train=phase_train)
     conv = sdn.inception_layer('Inception1', conv, 64, 1, phase_train=phase_train)
     conv = sdn.inception_layer('Inception2', conv, 128, 2, phase_train=phase_train)
