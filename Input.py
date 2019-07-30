@@ -72,11 +72,6 @@ def pre_proc_25D(dims=512):
         # Display volumes accidentally loaded as coronal
         if volume.shape[1] != volume.shape[2]: print('\n ********* Pt %s weird shaped %s\n' % (Accno, volume.shape))
 
-        # TODO: Testing
-        print(volume.shape, Accno, MRN, label_raw, label)
-        # volume = sdl.window_image(volume, -600, 750)
-        # sdd.display_volume(volume, True)
-
         # Resize the volume
         if volume.shape[1] != dims:
             volume = sdl.resize_volume(volume, np.int16, dims, dims)
@@ -141,10 +136,6 @@ def pre_proc_25D(dims=512):
 
         # Garbage
         del volume, mask, image, apical, midlung, lungbase
-
-        # # TODO: Testing
-        # for z in range(3): sdd.display_volume(image[..., z], False)
-        # if pts > 3: break
 
         # Save every 20 patients
         if pts % 40 == 0:
@@ -231,8 +222,9 @@ class DataPreprocessor(object):
         # Stack the results on a per channel basis
         image = tf.stack([apex, midlung, base], -1)
 
-        # Now normalize
-        image = tf.image.per_image_standardization(image)
+        # Now normalize. Window level is -600, width is 1500
+        image += 600
+        image /= 1500
 
         # Image augmentation. First calc rotation parameters
         angle = tf.random_uniform([1], -0.35, 0.35)
@@ -275,8 +267,9 @@ class DataPreprocessor(object):
         # Stack the results on a per channel basis
         image = tf.stack([apex, midlung, base], -1)
 
-        # Now normalize
-        image = tf.image.per_image_standardization(image)
+        # Now normalize. Window level is -600, width is 1500
+        image += 600
+        image /= 1500
 
        # Center crop
         image = tf.image.central_crop(image, 0.85)
