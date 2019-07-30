@@ -68,11 +68,19 @@ def train():
         # Define input shape
         data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
 
+        # Display the images
+        tf.summary.image('Base Train', tf.reshape(data['data'][0, :, :, 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Midlung Train', tf.reshape(data['data'][0, :, :, 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        tf.summary.image('Apex Train', tf.reshape(data['data'][0, :, :, 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+
         # Perform the forward pass:
         logits, l2loss = network.forward_pass(data['data'], phase_train=phase_train)
 
+        # Labels
+        labels = data['label']
+
         # Calculate loss
-        SCE_loss = network.total_loss(logits, data['label'])
+        SCE_loss = network.total_loss(logits, labels)
 
         # Add the L2 regularization loss
         loss = tf.add(SCE_loss, l2loss, name='TotalLoss')
@@ -100,9 +108,6 @@ def train():
         # Initialize the saver
         saver = tf.train.Saver(var_restore, max_to_keep=4)
 
-        # Tester instance
-        sdt = SDT.SODTester(False, False)
-
         # -------------------  Session Initializer  ----------------------
 
         # Set the intervals
@@ -119,7 +124,6 @@ def train():
             # Define filenames
             all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
             train_files = [x for x in all_files if FLAGS.test_files not in x]
-            valid_files = [x for x in all_files if FLAGS.test_files  in x]
 
             # Initialize the variables
             mon_sess.run(var_init)
@@ -131,7 +135,7 @@ def train():
             summary_writer = tf.summary.FileWriter(FLAGS.train_dir + FLAGS.RunInfo, mon_sess.graph)
 
             # Initialize the step counter
-            step, timer = 0, 0
+            timer = 0
 
             # No queues!
             for i in range(max_steps):
@@ -147,32 +151,38 @@ def train():
                 # Console and Tensorboard print interval
                 if i % print_interval == 0:
 
-                    # First retreive the loss values
-                    l2, sce, tot = mon_sess.run([l2loss, SCE_loss, loss], feed_dict={phase_train: True})
-                    tot *= 1e6
-                    l2 *= 1e6
-                    sce *= 1e6
+                    # Load some metrics
+                    lbl1, logtz, loss1, loss2, tot = mon_sess.run([labels, logits, SCE_loss, l2loss, loss], feed_dict={phase_train: True})
+
+                    # Make losses display in ppm
+                    tot *= 1e3
+                    loss1 *= 1e3
+                    loss2 *= 1e3
 
                     # Get timing stats
-                    elapsed = timer/print_interval
+                    elapsed = timer / print_interval
                     timer = 0
+
+                    # use numpy to print only the first sig fig
+                    np.set_printoptions(precision=2)
 
                     # Calc epoch
                     Epoch = int((i * FLAGS.batch_size) / FLAGS.epoch_size)
 
-                    # Now print the loss values
-                    print ('-'*70)
-                    print('Epoch: %s, Time: %.1f sec, L2 Loss: %.4f, Cross Entropy: %.4f, Total Loss (ppm): %.4f, Eg/s: %.4f, Seconds Per: %.4f'
-                          % (Epoch, elapsed, l2, sce, tot, FLAGS.batch_size/elapsed, elapsed/FLAGS.batch_size))
+                    # Print the data
+                    print('-' * 70)
+                    print('Epoch %d, L2 Loss: = %.3f (%.1f eg/s), Total Loss: %.3f SCE: %.4f'
+                          % (Epoch, loss2, FLAGS.batch_size / elapsed, tot, loss1))
+
+                    # Retreive and print the labels and logits
+                    print('Labels: %s' % np.squeeze(lbl1.astype(np.int8))[:20])
+                    print('Logits: %s' % np.squeeze(np.argmax(logtz.astype(np.float), axis=1))[:20])
 
                     # Run a session to retrieve our summaries
                     summary = mon_sess.run(all_summaries, feed_dict={phase_train: True})
 
                     # Add the summaries to the protobuf for Tensorboard
                     summary_writer.add_summary(summary, i)
-
-                    # Timer
-                    start_time = time.time()
 
                 if i % checkpoint_interval == 0:
 

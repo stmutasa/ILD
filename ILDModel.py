@@ -30,9 +30,9 @@ def forward_pass(images, phase_train):
     """
 
     # Define each level
-    apex = tf.expand_dims(images[..., 0], -1)
-    mid = tf.expand_dims(images[..., 0], -1)
     base = tf.expand_dims(images[..., 0], -1)
+    mid = tf.expand_dims(images[..., 1], -1)
+    apex = tf.expand_dims(images[..., 2], -1)
 
     # Channel wise layers
     conva = sdn.convolution('Conva', apex, 3, 4, 2, phase_train=phase_train)
@@ -41,13 +41,14 @@ def forward_pass(images, phase_train):
 
     # Combine
     conv = conva + convm + convb
-    conv = sdn.convolution('Conv1', conv, 3, 8, 2, phase_train=phase_train)
+    conv = sdn.convolution('Pre_Conv', conv, 3, 8, 1, phase_train=phase_train)
+    conv = sdn.convolution('Conv1', conv, 3, 16, 2, phase_train=phase_train)
 
     # Convolutional layers
-    conv = sdn.residual_layer('Residual1', conv, 3, 16, phase_train=phase_train)
-    conv = sdn.residual_layer('Residual2', conv, 3, 32, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception1', conv, 32, 1, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception2', conv, 64, 2, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual1', conv, 3, 32, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual2', conv, 3, 64, phase_train=phase_train)
+    conv = sdn.inception_layer('Inception1', conv, 64, 1, phase_train=phase_train)
+    conv = sdn.inception_layer('Inception2', conv, 128, 2, phase_train=phase_train)
 
     # Linear layers
     fc7 = sdn.fc7_layer('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)

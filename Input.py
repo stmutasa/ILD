@@ -262,11 +262,6 @@ class DataPreprocessor(object):
         # Add the poisson noise
         image = tf.add(image, tf.cast(noise, tf.float32))
 
-        # Display the images
-        tf.summary.image('Apex Train', tf.reshape(image[..., 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Midlung Train', tf.reshape(image[..., 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Base Train', tf.reshape(image[..., 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-
     else: # Validation
 
         # Generate random slices to use
