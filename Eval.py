@@ -32,8 +32,8 @@ tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions of the input pictures
 tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 100, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 100, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 400, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 400, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimi
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Multi GPU Training parameters
-tf.app.flags.DEFINE_string('RunInfo', 'First_run/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run2/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 # Define a custom training class
@@ -155,18 +155,17 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
+                    # data, labz, logz = sdt.combine_predictions(lbl1, logtz, pt, FLAGS.batch_size)
+                    # sdt.calculate_metrics(logz, labz, 1, step)
                     sdt.calculate_metrics(logtz, lbl1, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
-                    # Lets save runs below 0.8
+                    # Lets save runs that perform well
                     if sdt.AUC >= best_MAE:
 
                         # Save the checkpoint
                         print(" ---------------- SAVING THIS ONE %s", ckpt.model_checkpoint_path)
-
-                        # Define the filename
-                        file = ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC))
 
                         # Define the filenames
                         checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC)))
@@ -205,7 +204,7 @@ def test():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(0)
+    time.sleep(600)
     if tf.gfile.Exists('testing/'):
         tf.gfile.DeleteRecursively('testing/')
     tf.gfile.MakeDirs('testing/')

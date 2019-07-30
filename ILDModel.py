@@ -53,7 +53,8 @@ def forward_pass(images, phase_train):
 
     # Linear layers
     fc7 = sdn.fc7_layer('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)
-    linear = sdn.linear_layer('Linear', fc7, 8, True, phase_train, FLAGS.dropout_factor, BN=True, relu=False)
+    linear = sdn.linear_layer('Linear', fc7, 8, False, phase_train, BN=True, relu=True)
+    linear = sdn.linear_layer('Linear2', fc7, 4, True, phase_train, FLAGS.dropout_factor, BN=True, relu=True)
     Logits = sdn.linear_layer('Softmax', linear, FLAGS.num_classes, relu=False, add_bias=False, BN=False)
 
     # Retreive the weights collection

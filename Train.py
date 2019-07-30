@@ -25,7 +25,7 @@ tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
 tf.app.flags.DEFINE_string('test_files', '_9', """Testing files""")
 tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions to save files""")
-tf.app.flags.DEFINE_integer('network_dims', 128, """Center: 80/208 for 128/256""")
+tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the network input""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 
 # Define some of the immutable variables
@@ -33,11 +33,11 @@ tf.app.flags.DEFINE_integer('num_epochs', 300, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('epoch_size', 2000, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
-tf.app.flags.DEFINE_integer('batch_size', 32, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('batch_size', 64, """Number of images to process in a batch.""")
 
 # Hyperparameters:
-tf.app.flags.DEFINE_float('dropout_factor', 0.75, """ Keep probability""")
-tf.app.flags.DEFINE_float('l2_gamma', 1e-5, """ The gamma value for regularization loss""")
+tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
+tf.app.flags.DEFINE_float('l2_gamma', 1e-3, """ The gamma value for regularization loss""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the moving average tracker""")
 tf.app.flags.DEFINE_float('loss_factor',1.0, """The loss weighting factor""")
 
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'First_run/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run2/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 def train():
