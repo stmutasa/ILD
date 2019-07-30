@@ -227,16 +227,15 @@ class DataPreprocessor(object):
         image /= 1500
 
         # Image augmentation. First calc rotation parameters
-        angle = tf.random_uniform([1], -0.35, 0.35)
+        angle = tf.random_uniform([1], -0.30, 0.30)
 
         # Random rotate
-        image = tf.contrib.image.rotate(image, angle)
+        image = tf.contrib.image.rotate(image, angle, interpolation='BILINEAR')
 
         # Then randomly flip
         image = tf.image.random_flip_left_right(tf.image.random_flip_up_down(image))
 
         # Random brightness/contrast
-        image = tf.image.random_brightness(image, max_delta=1.5)
         image = tf.image.random_contrast(image, lower=0.95, upper=1.05)
 
         # Random center crop
@@ -276,11 +275,6 @@ class DataPreprocessor(object):
 
         # Reshape image
         image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims, 3])
-
-        # Display the images
-        tf.summary.image('Apex Val', tf.reshape(image[..., 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Midlung Val', tf.reshape(image[..., 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Base Val', tf.reshape(image[..., 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
 
     # Make record image
     record['data'] = image
