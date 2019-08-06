@@ -195,6 +195,7 @@ def load_protobuf(filenames, training=True):
     # Return data as a dictionary
     return examples, iterator
 
+
 class DataPreprocessor(object):
 
     # Applies transformations to dataset

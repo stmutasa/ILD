@@ -12,7 +12,6 @@ import ILDModel as network
 import numpy as np
 import tensorflow as tf
 import SODLoader as SDL
-import SODTester as SDT
 from pathlib import Path
 
 sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
@@ -23,7 +22,7 @@ FLAGS = tf.app.flags.FLAGS
 # Define some of the data variables
 tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
-tf.app.flags.DEFINE_string('test_files', '_9', """Testing files""")
+tf.app.flags.DEFINE_string('test_files', '_2', """Testing files""")
 tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions to save files""")
 tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the network input""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
@@ -48,7 +47,7 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Run2/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run4/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 def train():
@@ -115,6 +114,9 @@ def train():
         print_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.print_interval)
         checkpoint_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.checkpoint_interval)
         print('Max Steps: %s, Print Interval: %s, Checkpoint: %s' % (max_steps, print_interval, checkpoint_interval))
+
+        # Print Run info
+        print ("*** Training Run %s on GPU %s ****" %(FLAGS.RunInfo, FLAGS.GPU))
 
         # Allow memory placement growth
         config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)

@@ -41,20 +41,15 @@ def forward_pass(images, phase_train):
 
     # Combine
     conv = conva + convm + convb
-    conv = sdn.convolution('Pre_Conv', conv, 3, 8, 1, phase_train=phase_train)
-    conv = sdn.convolution('Conv1', conv, 3, 16, 2, phase_train=phase_train)
-
-    # Convolutional layers
-    conv = sdn.residual_layer('Residual1', conv, 3, 32, phase_train=phase_train)
-    conv = sdn.residual_layer('Residual1b', conv, 3, 32, 1, phase_train=phase_train)
-    conv = sdn.residual_layer('Residual2', conv, 3, 64, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception1', conv, 64, 1, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception2', conv, 128, 2, phase_train=phase_train)
+    conv = sdn.convolution('Conv1', conv, 3, 8, 2, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual1', conv, 3, 16, phase_train=phase_train)
+    conv = sdn.residual_layer('Residual2', conv, 3, 32, phase_train=phase_train)
+    conv = sdn.inception_layer('Inception1', conv, 32, 1, phase_train=phase_train)
+    conv = sdn.inception_layer('Inception2', conv, 64, 2, phase_train=phase_train)
 
     # Linear layers
     fc7 = sdn.fc7_layer('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)
-    linear = sdn.linear_layer('Linear', fc7, 8, False, phase_train, BN=True, relu=True)
-    linear = sdn.linear_layer('Linear2', fc7, 4, True, phase_train, FLAGS.dropout_factor, BN=True, relu=True)
+    linear = sdn.linear_layer('Linear', fc7, 4, True, phase_train, FLAGS.dropout_factor, BN=True)
     Logits = sdn.linear_layer('Softmax', linear, FLAGS.num_classes, relu=False, add_bias=False, BN=False)
 
     # Retreive the weights collection

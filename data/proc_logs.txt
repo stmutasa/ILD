@@ -533,3 +533,8 @@ Creating final protocol buffer
 
 Process finished with exit code 0
 
+On Skynet:
+221 Patients saved, 57 failed[No label, Label out of range, Failed load] [37, 19, 1]
+Creating final protocol buffer
+221 patients complete, 221 images saved
+

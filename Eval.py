@@ -5,8 +5,7 @@ from __future__ import division             # change the division operator to ou
 from __future__ import print_function       # use the print function from python 3
 
 import os
-import time                                 # to retreive current time
-import numpy as np
+import time
 
 import ILDModel as network
 import tensorflow as tf
@@ -14,8 +13,9 @@ import SODTester as SDT
 import SODLoader as SDL
 import SOD_Display as SDD
 import glob
+from pathlib import Path
 
-sdl = SDL.SODLoader(data_root='/PycharmProjects/Datasets/BreastData/MRI/iSpy/')
+sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
 sdd = SDD.SOD_Display()
 
 _author_ = 'Simi'
@@ -27,13 +27,13 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
 tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', '_9', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', '_2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 400, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 400, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 1000, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 1000, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimi
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Multi GPU Training parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Run2/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run4/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 # Define a custom training class
@@ -109,6 +109,9 @@ def test():
                 # Define filenames
                 all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
                 valid_files = [x for x in all_files if FLAGS.test_files in x]
+
+                # Print run info
+                print("*** Validation Run %s on GPU %s ****" % (FLAGS.RunInfo, FLAGS.GPU))
 
                 # Retreive the checkpoint
                 ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir+FLAGS.RunInfo)
