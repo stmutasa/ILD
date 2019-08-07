@@ -162,7 +162,9 @@ def inputs(filenames=[], training=True, skip=False):
     """
 
     # To Do: Skip part 1 and 2 if the protobuff already exists
-    if not skip: Input.pre_proc_25D(FLAGS.box_dims)
+    if not skip:
+        #Input.pre_proc_25D(FLAGS.box_dims)
+        Input.create_test_set(FLAGS.box_dims)
 
     else:
         print('-------------------------Previously saved records found! Loading...')
