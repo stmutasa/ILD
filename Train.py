@@ -62,7 +62,7 @@ def train():
         phase_train = tf.placeholder(tf.bool)
 
         # Load the images and labels.
-        data, iterator = network.inputs(filenames, training=True, skip=True)
+        data, iterator = network.inputs(filenames, training=True, skip=False)
 
         # Define input shape
         data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])

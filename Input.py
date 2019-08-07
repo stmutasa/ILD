@@ -39,7 +39,7 @@ def pre_proc_25D(dims=512):
 
     # global variables
     index, pts, per = 0, 0, 0
-    data = {}
+    data, track = {}, {}
     display, failures = [], [0, 0, 0]
 
     # Loop through all the files
@@ -131,6 +131,7 @@ def pre_proc_25D(dims=512):
 
         # Save the data
         data[index] = {'data': image, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN, 'file': file}
+        track[index] = {'label': label, 'accno': Accno, 'MRN': MRN}
         index += 1
         pts += 1
 
@@ -140,11 +141,12 @@ def pre_proc_25D(dims=512):
         # Save every 20 patients
         if pts % 40 == 0:
             print('%s patients complete, %s images saved' % (pts, index))
+            print ('Patients in this protobuf: \n%s' %track)
             file_root = ('data/Egs_' + str(pts // 40))
             sdl.save_tfrecords(data, 1, file_root=file_root)
             if pts < 45: sdl.save_dict_filetypes(data[0])
-            del data
-            data = {}
+            del data, track
+            data, track = {}, {}
 
         # All patients done, print the summary message
     print('%s Patients saved, %s failed[No label, Label out of range, Failed load] %s' % (pts, sum(failures), failures))
@@ -153,9 +155,9 @@ def pre_proc_25D(dims=512):
     print('Creating final protocol buffer')
     if data:
         print('%s patients complete, %s images saved' % (pts, index))
+        print('Patients in this protobuf: \n%s' % track)
         sdl.save_tfrecords(data, 1, file_root='data/Egs_Fin')
-
-    # plt.show()
+        del data, track
 
 
 # Load the protobuf
@@ -183,7 +185,7 @@ def load_protobuf(filenames, training=True):
     dataset = dataset.repeat()
 
     # Shuffle the dataset then create a batch
-    dataset = dataset.shuffle(buffer_size=100)
+    if training: dataset = dataset.shuffle(buffer_size=100)
     dataset = dataset.batch(FLAGS.batch_size)
 
     # Make an initializable iterator
@@ -256,7 +258,7 @@ class DataPreprocessor(object):
 
     else: # Validation
 
-        # Generate random slices to use
+        # We need to iterate through every slice
         slice_a = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
         slice_m = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
         slice_b = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
@@ -285,13 +287,3 @@ class DataPreprocessor(object):
 # pre_proc_25D()
 # filenames = tf.placeholder(tf.string, shape=[None])
 # load_protobuf(filenames)
-
-    # # TODO: Testing
-    # all_files = sdl.retreive_filelist('tfrecords', False, path='data/')
-    # train_files = [x for x in all_files if '_9' not in x]
-    # sess = tf.InteractiveSession()
-    # batch = iterator.get_next()
-    # sess.run(iterator.initializer, feed_dict={filenames: train_files})
-    # output = sess.run(batch)
-    # test_img = output['data'][4, :, :, :, 1]
-    # sdd.display_volume(test_img, plot=True)
