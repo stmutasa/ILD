@@ -279,22 +279,22 @@ def create_test_set(dims=512):
         spacing = total/3/2//10
 
         # Create the empty arrays we will fill. Testing set will have 5 slices per
-        apical = np.zeros(shape=[5, dims, dims], dtype=np.int16)
+        apical = np.zeros(shape=[3, dims, dims], dtype=np.int16)
         midlung, lungbase = np.zeros_like(apical), np.zeros_like(apical)
 
         # Now save the segments. Loop every 3 slices
-        for z in range (5):
+        for z in range (3):
 
             # Apical segment, start at -spacing
-            apical_start = int((apex-spacing) + (z*spacing))
+            apical_start = int((apex-spacing) + (z*spacing*2))
             apical[z] = volume[apical_start]
 
-            # Midlung segment, start at -spacing*2.5
-            midlung_start = int((mid - spacing*2.5) + (z * spacing))
+            # Midlung segment, start at -spacing*2
+            midlung_start = int((mid - spacing*2) + (z * spacing*2))
             midlung[z] = volume[midlung_start]
 
             # Apical segment, start at -spacing*4
-            base_start = int((lower - spacing*4) + (z * spacing))
+            base_start = int((lower - spacing*3) + (z * spacing*2))
             lungbase[z] = volume[base_start]
 
 
@@ -305,9 +305,9 @@ def create_test_set(dims=512):
                 break
 
         # Save all the data
-        for ap in range (5):
-            for ml in range(5):
-                for ba in range(5):
+        for ap in range (3):
+            for ml in range(3):
+                for ba in range(3):
 
                     # Images
                     image = np.stack([apical[ap], midlung[ml], lungbase[ba]], -1)
