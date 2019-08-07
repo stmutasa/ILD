@@ -131,7 +131,7 @@ def pre_proc_25D(dims=512):
 
         # Save the data
         data[index] = {'data': image, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN, 'file': file}
-        track[index] = {'label': label, 'accno': Accno, 'MRN': MRN}
+        display.append(Accno)
         index += 1
         pts += 1
 
@@ -141,12 +141,12 @@ def pre_proc_25D(dims=512):
         # Save every 20 patients
         if pts % 40 == 0:
             print('%s patients complete, %s images saved' % (pts, index))
-            print ('Patients in this protobuf: \n%s' %track)
+            print ('Patients in this protobuf: \n%s' %display)
             file_root = ('data/Egs_' + str(pts // 40))
             sdl.save_tfrecords(data, 1, file_root=file_root)
             if pts < 45: sdl.save_dict_filetypes(data[0])
-            del data, track
-            data, track = {}, {}
+            del data, display
+            data, display = {}, []
 
         # All patients done, print the summary message
     print('%s Patients saved, %s failed[No label, Label out of range, Failed load] %s' % (pts, sum(failures), failures))
@@ -155,9 +155,9 @@ def pre_proc_25D(dims=512):
     print('Creating final protocol buffer')
     if data:
         print('%s patients complete, %s images saved' % (pts, index))
-        print('Patients in this protobuf: \n%s' % track)
+        print('Patients in this protobuf: \n%s' % display)
         sdl.save_tfrecords(data, 1, file_root='data/Egs_Fin')
-        del data, track
+        del data, display
 
 
 # Load the protobuf
