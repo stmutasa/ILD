@@ -27,3 +27,13 @@ Creating final protocol buffer
 Patients in this protobuf:
 ['2667870', '2554416', '2946793', '2637525', '1878716', '2982124', '2951671', '2191314', '2673670', '2651645', '642859', '3136738', '2856223', '1713690', '1157062', '1797479', '3010504', '2706805', '2255159', '1534521', '2349032']
 
+TESTING SET: (512x512x3 files) Aka no Z dimensions
+
+221 patients complete, 5967 TEST images saved, Saving the dictionaries...
+57 failed: [No label, Label out of range, Failed load] [37, 19, 1]
+40 Patients and 1080 examples in this dictionary
+40 Patients and 1080 examples in this dictionary
+40 Patients and 1080 examples in this dictionary
+40 Patients and 1080 examples in this dictionary
+40 Patients and 1080 examples in this dictionary
+21 Patients and 567 examples in this dictionary

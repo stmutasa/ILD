@@ -335,7 +335,7 @@ def create_test_set(dims=512):
     for dd in range (6):
         print('%s Patients and %s examples in this dictionary' % (len(test_split[dd]), len(data[dd])))
         file_root = ('data/Test_' + str(dd+1))
-        sdl.save_tfrecords(data, 1, file_root=file_root)
+        sdl.save_tfrecords(data[dd], 1, file_root=file_root)
 
 
 # Load the protobuf
