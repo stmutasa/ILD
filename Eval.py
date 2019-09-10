@@ -25,15 +25,15 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
+tf.app.flags.DEFINE_string('data_dir', 'data/test/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', '_2', """Files for testing have this name""")
+tf.app.flags.DEFINE_string('test_files', 'Test_2', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 1000, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 1000, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 1080, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 1080, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -65,7 +65,7 @@ def test():
         phase_train = tf.placeholder(tf.bool)
 
         # Get a dictionary of our images, id's, and labels from the iterator
-        examples, iterator = network.inputs(filenames, True, skip=True)
+        examples, iterator = network.inputs(filenames, False, skip=True)
 
         # Define input shape
         examples['data'] = tf.reshape(examples['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
@@ -109,6 +109,8 @@ def test():
                 # Define filenames
                 all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
                 valid_files = [x for x in all_files if FLAGS.test_files in x]
+
+                print('******** Loading Testing Files: ', valid_files)
 
                 # Print run info
                 print("*** Validation Run %s on GPU %s ****" % (FLAGS.RunInfo, FLAGS.GPU))
@@ -158,9 +160,9 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
-                    # data, labz, logz = sdt.combine_predictions(lbl1, logtz, pt, FLAGS.batch_size)
-                    # sdt.calculate_metrics(logz, labz, 1, step)
-                    sdt.calculate_metrics(logtz, lbl1, 1, step)
+                    data, labz, logz = sdt.combine_predictions(lbl1, logtz, pt, FLAGS.batch_size)
+                    sdt.calculate_metrics(logz, labz, 1, step)
+                    # sdt.calculate_metrics(logtz, lbl1, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
@@ -207,7 +209,7 @@ def test():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(600)
+    time.sleep(0)
     if tf.gfile.Exists('testing/'):
         tf.gfile.DeleteRecursively('testing/')
     tf.gfile.MakeDirs('testing/')

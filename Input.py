@@ -348,8 +348,13 @@ def load_protobuf(filenames, training=True):
     # Create a dataset from the protobuf
     dataset = tf.data.TFRecordDataset(filenames)
 
-    _records_call = lambda dataset: \
-        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
+    if training:
+        _records_call = lambda dataset: \
+            sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
+
+    else:
+        _records_call = lambda dataset: \
+            sdl.load_tfrecords(dataset, [FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
 
     # Parse the record into tensors
     dataset = dataset.map(_records_call, num_parallel_calls=6)
@@ -436,13 +441,8 @@ class DataPreprocessor(object):
 
     else: # Validation
 
-        # We need to iterate through every slice
-        slice_a = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-        slice_m = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-        slice_b = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-
         # Apply the slices
-        apex, midlung, base = tf.squeeze(apex[slice_a]), tf.squeeze(midlung[slice_m]), tf.squeeze(base[slice_b])
+        apex, midlung, base = tf.squeeze(apex), tf.squeeze(midlung), tf.squeeze(base)
 
         # Stack the results on a per channel basis
         image = tf.stack([apex, midlung, base], -1)
@@ -452,10 +452,10 @@ class DataPreprocessor(object):
         image /= 1500
 
        # Center crop
-        image = tf.image.central_crop(image, 0.85)
+        image = tf.image.central_crop(image, 0.8)
 
         # Reshape image
-        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims, 3])
+        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims])
 
     # Make record image
     record['data'] = image

@@ -20,7 +20,7 @@ sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
 FLAGS = tf.app.flags.FLAGS
 
 # Define some of the data variables
-tf.app.flags.DEFINE_string('data_dir', 'data/', """Path to the data directory.""")
+tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data directory.""")
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
 tf.app.flags.DEFINE_string('test_files', '_2', """Testing files""")
 tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions to save files""")
@@ -28,8 +28,8 @@ tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the network in
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 
 # Define some of the immutable variables
-tf.app.flags.DEFINE_integer('num_epochs', 300, """Number of epochs to run""")
-tf.app.flags.DEFINE_integer('epoch_size', 2000, """How many examples""")
+tf.app.flags.DEFINE_integer('num_epochs', 200, """Number of epochs to run""")
+tf.app.flags.DEFINE_integer('epoch_size', 1000, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 64, """Number of images to process in a batch.""")
@@ -47,7 +47,7 @@ tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam opti
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Run4/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 def train():
@@ -62,7 +62,7 @@ def train():
         phase_train = tf.placeholder(tf.bool)
 
         # Load the images and labels.
-        data, iterator = network.inputs(filenames, training=True, skip=False)
+        data, iterator = network.inputs(filenames, training=True, skip=True)
 
         # Define input shape
         data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
@@ -126,6 +126,8 @@ def train():
             # Define filenames
             all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
             train_files = [x for x in all_files if FLAGS.test_files not in x]
+
+            print('******** Loading Training Files: ', train_files)
 
             # Initialize the variables
             mon_sess.run(var_init)
