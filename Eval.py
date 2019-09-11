@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimi
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Multi GPU Training parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Run4/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Run3/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 # Define a custom training class
@@ -178,7 +178,7 @@ def test():
 
                         # Save the checkpoint
                         saver.save(mon_sess, checkpoint_file)
-                        #sdl.save_Dict_CSV(data, csv_file)
+                        sdl.save_Dict_CSV(data, csv_file)
 
                         # Save a new best MAE
                         best_MAE = sdt.AUC
@@ -188,7 +188,7 @@ def test():
                     mon_sess.close()
 
             # Break if this is the final checkpoint
-            if '299' in Epoch: break
+            if '499' in Epoch: break
 
             # Print divider
             print('-' * 70)
@@ -209,7 +209,7 @@ def test():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(0)
+    time.sleep(900)
     if tf.gfile.Exists('testing/'):
         tf.gfile.DeleteRecursively('testing/')
     tf.gfile.MakeDirs('testing/')
