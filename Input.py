@@ -21,7 +21,7 @@ sdl = SDL.SODLoader(data_root=home_dir)
 sdd = SDD.SOD_Display()
 
 # For loading the files for a 2.5 D network
-def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[5, 20, 20]):
+def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
 
     """
     Loads the CT data into tfrecords
@@ -113,7 +113,7 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[5, 20, 20]):
             sup = int(sup - 10 // spacing[0])
 
         # Find the middle of the lungs
-        midlung_slice = (sup - inf) // 2
+        midlung_slice = inf + ((sup - inf) // 2)
 
         # Calculate how big the box should be
         box_size = (np.asarray(size) // spacing).astype(np.int16)
@@ -149,8 +149,38 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[5, 20, 20]):
                     # Garbage
                     del wedge, wedge_check
 
-        # Done with patient
+        # Done with patient, if there are no wedges saved, reduce the stride
         counts = index - counts
+        print('***** Pt %s with %s counts' % (MRN, counts))
+
+        if counts <= 50:
+            print('\nCounts too low  for %s, (%s) with dims %s spacing %s stride div %s and trying again..'
+                  % (MRN, counts, volume.shape, spacing, ((100 - counts) // 30)), end='')
+            index -= counts  # Overrwrite the already written data
+            thresh = 0.45
+            if counts == 0:
+                true_stride = (true_stride // 5).astype(np.int16)
+                thresh = 0.25
+            else:
+                true_stride = (true_stride // ((100 - counts) // 30)).astype(np.int16)
+            counts = index
+            for z in range(inf, midlung_slice, true_stride[0]):
+                for y in range(0, volume.shape[1], true_stride[1]):
+                    for x in range(0, volume.shape[2], true_stride[2]):
+                        wedge_check, _ = sdl.generate_box(mask, [z, y, x], box_size[1], z_overwrite=box_size[0])
+                        ratio = sdl.return_nonzero_pixel_ratio(wedge_check, 1, True)
+                        if (ratio < thresh) or (ratio > 0.99999): continue
+                        wedge, _ = sdl.generate_box(volume, [z, y, x], box_size[1], z_overwrite=box_size[0])
+                        wedge, _ = sdl.resample(wedge, spacing, new_spacing=[1, 1, 1])
+                        wedge = sdl.resize_volume(wedge, np.int16, size[2], size[1], size[0])
+                        data[index] = {'data': wedge, 'label': label, 'label_raw': label_raw, 'accno': Accno,
+                                       'MRN': MRN, 'file': file, 'sizexy': size[1], 'sizez': size[0]}
+                        index += 1
+                        del wedge, wedge_check
+            counts = index - counts
+            print(' Made %s this time\n' % counts)
+            if counts == 0: sdd.display_whole_vol_overlay(volume, mask)
+
         display.append(counts)
         pts += 1
         del volume, mask
@@ -175,6 +205,7 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[5, 20, 20]):
         print('Patients in this protobuf: \n%s' % display)
         sdl.save_tfrecords(data, 1, file_root='data/Egs_Fin')
         del data, display
+    plt.show()
 
 
 # Load the protobuf
@@ -187,13 +218,8 @@ def load_protobuf(filenames, training=True):
     # Create a dataset from the protobuf
     dataset = tf.data.TFRecordDataset(filenames)
 
-    if training:
-        _records_call = lambda dataset: \
-            sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
-
-    else:
-        _records_call = lambda dataset: \
-            sdl.load_tfrecords(dataset, [FLAGS.box_dims, FLAGS.box_dims, 3], tf.int16)
+    _records_call = lambda dataset: \
+        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
 
     # Parse the record into tensors
     dataset = dataset.map(_records_call, num_parallel_calls=6)
@@ -207,7 +233,7 @@ def load_protobuf(filenames, training=True):
     dataset = dataset.repeat()
 
     # Shuffle the dataset then create a batch
-    if training: dataset = dataset.shuffle(buffer_size=100)
+    if training: dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.batch(FLAGS.batch_size)
 
     # Make an initializable iterator
@@ -230,78 +256,46 @@ class DataPreprocessor(object):
   def __call__(self, record):
 
     """Process img for training or eval."""
-    apex, midlung, base = record['data'][...,0], record['data'][...,1], record['data'][...,2]
+    image = record['data']
 
     if self._distords:  # Training
 
         # Data Augmentation ------------------ Contrast, brightness, noise, rotate, shear, crop, flip
 
-        # Generate random slices to use
-        slice_a = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-        slice_m = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-        slice_b = tf.squeeze(tf.random_uniform([1], 0, 10, dtype=tf.int32))
-
-        # Apply the slices
-        apex, midlung, base = tf.squeeze(apex[slice_a]), tf.squeeze(midlung[slice_m]), tf.squeeze(base[slice_b])
-
-        # Stack the results on a per channel basis
-        image = tf.stack([apex, midlung, base], -1)
-
         # Now normalize. Window level is -600, width is 1500
         image += 600
         image /= 1500
-
-        # Image augmentation. First calc rotation parameters
-        angle = tf.random_uniform([1], -0.30, 0.30)
-
-        # Random rotate
-        image = tf.contrib.image.rotate(image, angle, interpolation='BILINEAR')
 
         # Then randomly flip
         image = tf.image.random_flip_left_right(tf.image.random_flip_up_down(image))
 
         # Random brightness/contrast
-        image = tf.image.random_contrast(image, lower=0.95, upper=1.05)
+        image = tf.image.random_contrast(image, lower=0.995, upper=1.005)
 
-        # Random center crop
-        image = tf.image.central_crop(image, 0.8)
-
-        # Reshape image
-        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims])
+        # Reshape image to be a factorizatoin of 2
+        image = sdl.tf_resize_3D(image, 8, FLAGS.network_dims, FLAGS.network_dims, True)
 
         # For noise, first randomly determine how 'noisy' this study will be
         T_noise = tf.random_uniform([1], 0, 0.1)
 
         # Create a poisson noise array
-        noise = tf.random_uniform(shape=[FLAGS.network_dims, FLAGS.network_dims, 3], minval=-T_noise, maxval=T_noise)
+        noise = tf.random_uniform(shape=[8, FLAGS.network_dims, FLAGS.network_dims], minval=-T_noise, maxval=T_noise)
 
         # Add the poisson noise
         image = tf.add(image, tf.cast(noise, tf.float32))
 
     else: # Validation
 
-        # Apply the slices
-        apex, midlung, base = tf.squeeze(apex), tf.squeeze(midlung), tf.squeeze(base)
-
-        # Stack the results on a per channel basis
-        image = tf.stack([apex, midlung, base], -1)
-
         # Now normalize. Window level is -600, width is 1500
         image += 600
         image /= 1500
 
-       # Center crop
-        image = tf.image.central_crop(image, 0.8)
-
-        # Reshape image
-        image = tf.image.resize_images(image, [FLAGS.network_dims, FLAGS.network_dims])
+        # Reshape image to factor of 2
+        image = tf.image.resize_images(image, [8, FLAGS.network_dims, FLAGS.network_dims])
 
     # Make record image
     record['data'] = image
 
     return record
 
-# pre_proc_25D()
-# filenames = tf.placeholder(tf.string, shape=[None])
-# load_protobuf(filenames)
-pre_proc_wedge_3d()
+# pre_proc_wedge_3d()

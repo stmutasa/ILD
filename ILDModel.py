@@ -23,33 +23,33 @@ sdn = SDN.SODMatrix()
 def forward_pass(images, phase_train):
 
     """
-    Train a 2 dimensional network
+    Train a 3 dimensional network
     :param images: input images, [batch, box_dims, box_dims, 3]
     :param phase_train: True if this is the training phase
     :return: L2 Loss and Logits
     """
 
-    # Define each level
-    base = tf.expand_dims(images[..., 0], -1)
-    mid = tf.expand_dims(images[..., 1], -1)
-    apex = tf.expand_dims(images[..., 2], -1)
+    # Initial kernel size
+    K = 4
+    images = tf.expand_dims(images, -1)
 
-    # Channel wise layers
-    conva = sdn.convolution('Conva', apex, 3, 4, 2, phase_train=phase_train)
-    convm = sdn.convolution('Convm', mid, 3, 4, 2, phase_train=phase_train)
-    convb = sdn.convolution('Convb', base, 3, 4, 2, phase_train=phase_train)
+    # Channel wise layers. Inputs = batchx8x32x32
+    conv = sdn.convolution_3d('conv1', images, 3, K, 1, phase_train=phase_train)
+    conv = sdn.convolution_3d('conv1b', conv, 3, K * 2, 2, phase_train=phase_train)
 
-    # Combine
-    conv = conva + convm + convb
-    conv = sdn.convolution('Conv1', conv, 3, 8, 2, phase_train=phase_train)
-    conv = sdn.residual_layer('Residual1', conv, 3, 16, phase_train=phase_train)
-    conv = sdn.residual_layer('Residual2', conv, 3, 32, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception1', conv, 32, 1, phase_train=phase_train)
-    conv = sdn.inception_layer('Inception2', conv, 64, 2, phase_train=phase_train)
+    conv = sdn.residual_layer_3d('conv2', conv, 3, K * 2, 1, phase_train=phase_train, padding='SAME')
+    conv = sdn.residual_layer_3d('conv2b', conv, 3, K * 2, 1, phase_train=phase_train, padding='SAME')
+    conv = sdn.residual_layer_3d('conv2c', conv, 3, K * 4, [1, 2, 2], phase_train=phase_train, padding='SAME')
+
+    conv = sdn.inception_layer_3d('conv3', conv, K * 4, 1, 1, phase_train=phase_train, padding='SAME')
+    conv = sdn.inception_layer_3d('conv3b', conv, K * 8, 1, [1, 2, 2], phase_train=phase_train, padding='SAME')
+
+    conv = sdn.inception_layer_3d('conv4', conv, K * 8, 1, 1, phase_train=phase_train, padding='SAME')
+    conv = sdn.inception_layer_3d('conv4b', conv, K * 8, 1, 1, phase_train=phase_train, padding='SAME')
 
     # Linear layers
-    fc7 = sdn.fc7_layer('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)
-    linear = sdn.linear_layer('Linear', fc7, 4, True, phase_train, FLAGS.dropout_factor, BN=True)
+    linear = sdn.fc7_layer_3d('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)
+    linear = sdn.linear_layer('Linear', linear, 4, True, phase_train, FLAGS.dropout_factor, BN=True)
     Logits = sdn.linear_layer('Softmax', linear, FLAGS.num_classes, relu=False, add_bias=False, BN=False)
 
     # Retreive the weights collection
