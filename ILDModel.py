@@ -31,21 +31,27 @@ def forward_pass(images, phase_train):
 
     # Initial kernel size
     K = 4
-    images = tf.expand_dims(images, -1)
+    images = tf.expand_dims(images, -1)  # 10X40
 
     # Channel wise layers. Inputs = batchx8x32x32
-    conv = sdn.convolution_3d('conv1', images, 3, K, 1, phase_train=phase_train)
-    conv = sdn.convolution_3d('conv1b', conv, 3, K * 2, 2, phase_train=phase_train)
+    conv = sdn.convolution_3d('conv1', images, 3, K, 1, phase_train=phase_train, padding='VALID')  # 8X38
+    conv = sdn.convolution_3d('conv1b', conv, 3, K * 2, [1, 2, 2], phase_train=phase_train)  # 8X19
 
-    conv = sdn.residual_layer_3d('conv2', conv, 3, K * 2, 1, phase_train=phase_train, padding='SAME')
-    conv = sdn.residual_layer_3d('conv2b', conv, 3, K * 2, 1, phase_train=phase_train, padding='SAME')
-    conv = sdn.residual_layer_3d('conv2c', conv, 3, K * 4, [1, 2, 2], phase_train=phase_train, padding='SAME')
+    conv = sdn.residual_layer_3d('conv2', conv, 2, K * 2, 1, phase_train=phase_train, padding='VALID')  # 7X18
+    conv = sdn.residual_layer_3d('conv2b', conv, 3, K * 2, 1, phase_train=phase_train, padding='VALID')  # 5X16
+    conv = sdn.residual_layer_3d('conv2c', conv, 3, K * 2, 1, phase_train=phase_train, padding='SAME')  # 5X16
+    conv = sdn.residual_layer_3d('conv2d', conv, 3, K * 4, [1, 2, 2], phase_train=phase_train, padding='SAME')  # 5X8
+
+    # Compress Z to 4
+    conv = sdn.convolution_3d('convz', conv, [2, 1, 1], K * 4, 1, phase_train=phase_train, padding='VALID')  #4x8
 
     conv = sdn.inception_layer_3d('conv3', conv, K * 4, 1, 1, phase_train=phase_train, padding='SAME')
-    conv = sdn.inception_layer_3d('conv3b', conv, K * 8, 1, [1, 2, 2], phase_train=phase_train, padding='SAME')
+    conv = sdn.inception_layer_3d('conv3b', conv, K * 8, 1, [1, 2, 2], phase_train=phase_train, padding='SAME')  # 4x4
 
-    conv = sdn.inception_layer_3d('conv4', conv, K * 8, 1, 1, phase_train=phase_train, padding='SAME')
-    conv = sdn.inception_layer_3d('conv4b', conv, K * 8, 1, 1, phase_train=phase_train, padding='SAME')
+    conv = sdn.inception_layer_3d('conv4', conv, K * 8, 1, 1, phase_train=phase_train)
+    conv = sdn.inception_layer_3d('conv4b', conv, K * 8, 1, 1, phase_train=phase_train)
+    conv = sdn.inception_layer_3d('conv4C', conv, K * 8, 1, 1, phase_train=phase_train)
+    conv = sdn.inception_layer_3d('conv4D', conv, K * 8, 1, 1, phase_train=phase_train)
 
     # Linear layers
     linear = sdn.fc7_layer_3d('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)

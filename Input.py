@@ -216,37 +216,40 @@ def load_protobuf(training=True):
     """
 
     # Define filenames
-    all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
-    train_files = [x for x in all_files if FLAGS.test_files not in x]
+    if training:
+        all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
+        filenames = [x for x in all_files if FLAGS.test_files not in x]
+    else:
+        all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
+        filenames = [x for x in all_files if FLAGS.test_files in x]
 
-    print('******** Loading Training Files: ', train_files)
+    print('******** Loading Files: ', filenames)
 
     # Create a dataset from the protobuf
-    dataset = tf.data.TFRecordDataset(train_files)
+    dataset = tf.data.TFRecordDataset(filenames)
 
     # Shuffle the entire dataset then create a batch
-    if training: dataset = dataset.shuffle(buffer_size=9500)
+    if training: dataset = dataset.shuffle(buffer_size=FLAGS.epoch_size)
 
+    # Load the tfrecords into the dataset with the first map call
     _records_call = lambda dataset: \
         sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
 
     # Parse the record into tensors
-    dataset = dataset.map(_records_call, num_parallel_calls=6)
+    dataset = dataset.map(_records_call, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # Fuse the mapping and batching
     scope = 'data_augmentation' if training else 'input'
     with tf.name_scope(scope):
-        dataset = dataset.apply(tf.contrib.data.map_and_batch(map_func=DataPreprocessor(training),
-                                                              batch_size=FLAGS.batch_size,
-                                                              num_parallel_calls=tf.data.experimental.AUTOTUNE))
 
-    #     # Map the data set
-    #     dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    #
-    # # Batch the dataset. Can try batch before map if map is small
-    # dataset = dataset.batch(FLAGS.batch_size)
+        # Map the data set
+        dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    # Prefetch
+    # Batch the dataset and drop remainder. Can try batch before map if map is small
+    dataset = dataset.batch(FLAGS.batch_size, drop_remainder=True)
+
+    # cache and Prefetch
+    dataset = dataset.cache()
     dataset = dataset.prefetch(buffer_size=FLAGS.batch_size)
 
     # Repeat input indefinitely
@@ -288,14 +291,11 @@ class DataPreprocessor(object):
         # Random brightness/contrast
         image = tf.image.random_contrast(image, lower=0.995, upper=1.005)
 
-        # Reshape image to be a factorizatoin of 2
-        image = sdl.tf_resize_3D(image, 8, FLAGS.network_dims, FLAGS.network_dims, True)
-
         # For noise, first randomly determine how 'noisy' this study will be
-        T_noise = tf.random_uniform([1], 0, 0.1)
+        T_noise = tf.random_uniform([1], 0, 0.02)
 
         # Create a poisson noise array
-        noise = tf.random_uniform(shape=[8, FLAGS.network_dims, FLAGS.network_dims], minval=-T_noise, maxval=T_noise)
+        noise = tf.random_uniform(shape=[10, FLAGS.network_dims, FLAGS.network_dims], minval=-T_noise, maxval=T_noise)
 
         # Add the poisson noise
         image = tf.add(image, tf.cast(noise, tf.float32))
@@ -305,9 +305,6 @@ class DataPreprocessor(object):
         # Now normalize. Window level is -600, width is 1500
         image += 600
         image /= 1500
-
-        # Reshape image to factor of 2
-        image = tf.image.resize_images(image, [8, FLAGS.network_dims, FLAGS.network_dims])
 
     # Make record image
     record['data'] = image

@@ -24,21 +24,21 @@ tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data direct
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
 tf.app.flags.DEFINE_string('test_files', '_2', """Testing files""")
 tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions to save files""")
-tf.app.flags.DEFINE_integer('network_dims', 32, """dimensions of the network input""")
+tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the network input""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_epochs', 200, """Number of epochs to run""")
-tf.app.flags.DEFINE_integer('epoch_size', 9000, """How many examples""")
+tf.app.flags.DEFINE_integer('epoch_size', 93677, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
 tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
-tf.app.flags.DEFINE_integer('batch_size', 32, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('batch_size', 128, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
 tf.app.flags.DEFINE_float('l2_gamma', 1e-3, """ The gamma value for regularization loss""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the moving average tracker""")
-tf.app.flags.DEFINE_float('loss_factor', 10.0, """The loss weighting factor""")
+tf.app.flags.DEFINE_float('loss_factor', 1.0, """The loss weighting factor""")
 tf.app.flags.DEFINE_integer('loss_class', 1, """For classes this and above, apply the above loss factor.""")
 
 # Hyperparameters to control the optimizer
@@ -63,7 +63,7 @@ def train():
         data, iterator = network.inputs(training=True, skip=True)
 
         # Define input shape
-        data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, 8, FLAGS.network_dims, FLAGS.network_dims])
+        data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, 10, FLAGS.network_dims, FLAGS.network_dims])
 
         # Display the images to tensorboard
         tf.summary.image('Train',
@@ -116,7 +116,7 @@ def train():
         print ("*** Training Run %s on GPU %s ****" %(FLAGS.RunInfo, FLAGS.GPU))
 
         # Allow memory placement growth
-        config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=False)
+        config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as mon_sess:
 

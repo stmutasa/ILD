@@ -25,15 +25,15 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('data_dir', 'data/test/', """Path to the data directory.""")
+tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', 'Test_2', """Files for testing have this name""")
-tf.app.flags.DEFINE_integer('box_dims', 512, """dimensions of the input pictures""")
-tf.app.flags.DEFINE_integer('network_dims', 128, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_string('test_files', '_2', """Files for testing have this name""")
+tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 1080, """How many images were loaded""")
-tf.app.flags.DEFINE_integer('batch_size', 1080, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 20524, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 733, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimi
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Multi GPU Training parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Run3/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Wedge/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 # Define a custom training class
@@ -68,12 +68,12 @@ def test():
         examples, iterator = network.inputs(filenames, False, skip=True)
 
         # Define input shape
-        examples['data'] = tf.reshape(examples['data'], [FLAGS.batch_size, FLAGS.network_dims, FLAGS.network_dims, 3])
+        examples['data'] = tf.reshape(examples['data'], [FLAGS.batch_size, 10, FLAGS.network_dims, FLAGS.network_dims])
 
-        # Display the images
-        tf.summary.image('Base Val', tf.reshape(examples['data'][0, :, :, 0], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Mid Val', tf.reshape(examples['data'][0, :, :, 1], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
-        tf.summary.image('Apex Val', tf.reshape(examples['data'][0, :, :, 2], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]), 8)
+        # Display the images to tensorboard
+        tf.summary.image('Test',
+                         tf.reshape(examples['data'][0, 4, ...], shape=[1, FLAGS.network_dims, FLAGS.network_dims, 1]),
+                         8)
 
         # Build a graph that computes the prediction from the inference model (Forward pass)
         logits, l2loss = network.forward_pass(examples['data'], phase_train=phase_train)
@@ -106,12 +106,6 @@ def test():
             config.gpu_options.allow_growth = True
             with tf.Session(config=config) as mon_sess:
 
-                # Define filenames
-                all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
-                valid_files = [x for x in all_files if FLAGS.test_files in x]
-
-                print('******** Loading Testing Files: ', valid_files)
-
                 # Print run info
                 print("*** Validation Run %s on GPU %s ****" % (FLAGS.RunInfo, FLAGS.GPU))
 
@@ -122,7 +116,7 @@ def test():
                 mon_sess.run(var_init)
 
                 # Initialize iterator
-                mon_sess.run(iterator.initializer, feed_dict={filenames: valid_files})
+                mon_sess.run(iterator.initializer)
 
                 if ckpt and ckpt.model_checkpoint_path:
 
@@ -151,6 +145,9 @@ def test():
                         # Load some metrics for testing
                         lbl1, logtz, pt = mon_sess.run([labels, logits, examples['accno']], feed_dict={phase_train: False})
 
+                        # Combine
+                        data, labz, logz = sdt.combine_predictions(lbl1, logtz, pt, FLAGS.batch_size)
+
                         # Increment step
                         step += 1
 
@@ -160,9 +157,7 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
-                    data, labz, logz = sdt.combine_predictions(lbl1, logtz, pt, FLAGS.batch_size)
                     sdt.calculate_metrics(logz, labz, 1, step)
-                    # sdt.calculate_metrics(logtz, lbl1, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
