@@ -209,14 +209,23 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
 
 
 # Load the protobuf
-def load_protobuf(filenames, training=True):
+def load_protobuf(training=True):
 
     """
     Loads the protocol buffer into a form to send to shuffle
     """
 
+    # Define filenames
+    all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
+    train_files = [x for x in all_files if FLAGS.test_files not in x]
+
+    print('******** Loading Training Files: ', train_files)
+
     # Create a dataset from the protobuf
-    dataset = tf.data.TFRecordDataset(filenames)
+    dataset = tf.data.TFRecordDataset(train_files)
+
+    # Shuffle the entire dataset then create a batch
+    if training: dataset = dataset.shuffle(buffer_size=9500)
 
     _records_call = lambda dataset: \
         sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
@@ -224,17 +233,24 @@ def load_protobuf(filenames, training=True):
     # Parse the record into tensors
     dataset = dataset.map(_records_call, num_parallel_calls=6)
 
-    # Warp the data set
+    # Fuse the mapping and batching
     scope = 'data_augmentation' if training else 'input'
     with tf.name_scope(scope):
-        dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=6)
+        dataset = dataset.apply(tf.contrib.data.map_and_batch(map_func=DataPreprocessor(training),
+                                                              batch_size=FLAGS.batch_size,
+                                                              num_parallel_calls=tf.data.experimental.AUTOTUNE))
+
+    #     # Map the data set
+    #     dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    #
+    # # Batch the dataset. Can try batch before map if map is small
+    # dataset = dataset.batch(FLAGS.batch_size)
+
+    # Prefetch
+    dataset = dataset.prefetch(buffer_size=FLAGS.batch_size)
 
     # Repeat input indefinitely
     dataset = dataset.repeat()
-
-    # Shuffle the dataset then create a batch
-    if training: dataset = dataset.shuffle(buffer_size=1000)
-    dataset = dataset.batch(FLAGS.batch_size)
 
     # Make an initializable iterator
     iterator = dataset.make_initializable_iterator()

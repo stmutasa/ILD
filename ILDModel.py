@@ -151,7 +151,7 @@ def backward_pass(total_loss):
     return dummy_op
 
 
-def inputs(filenames=[], training=True, skip=False):
+def inputs(training=True, skip=False):
 
     """
     Loads the inputs
@@ -169,4 +169,4 @@ def inputs(filenames=[], training=True, skip=False):
     else:
         print('-------------------------Previously saved records found! Loading...')
 
-    return Input.load_protobuf(filenames, training)
+    return Input.load_protobuf(training)

@@ -56,14 +56,11 @@ def train():
     # Makes this the default graph where all ops will be added
     with tf.Graph().as_default(), tf.device('/gpu:' + str(FLAGS.GPU)):
 
-        # Use a placeholder for the filenames
-        filenames = tf.placeholder(tf.string, shape=[None])
-
         # Define phase of training
         phase_train = tf.placeholder(tf.bool)
 
         # Load the images and labels.
-        data, iterator = network.inputs(filenames, training=True, skip=True)
+        data, iterator = network.inputs(training=True, skip=True)
 
         # Define input shape
         data['data'] = tf.reshape(data['data'], [FLAGS.batch_size, 8, FLAGS.network_dims, FLAGS.network_dims])
@@ -119,21 +116,15 @@ def train():
         print ("*** Training Run %s on GPU %s ****" %(FLAGS.RunInfo, FLAGS.GPU))
 
         # Allow memory placement growth
-        config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True)
+        config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=False)
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as mon_sess:
-
-            # Define filenames
-            all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
-            train_files = [x for x in all_files if FLAGS.test_files not in x]
-
-            print('******** Loading Training Files: ', train_files)
 
             # Initialize the variables
             mon_sess.run(var_init)
 
             # Initialize iterator
-            mon_sess.run(iterator.initializer, feed_dict={filenames: train_files})
+            mon_sess.run(iterator.initializer)
 
             # Initialize the handle to the summary writer in our training directory
             summary_writer = tf.summary.FileWriter(FLAGS.train_dir + FLAGS.RunInfo, mon_sess.graph)
