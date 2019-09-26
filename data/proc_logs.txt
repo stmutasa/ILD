@@ -1,26 +1,38 @@
 WEDGE:
 
 40 Patients complete, 20846 Wedges saved
+tf.app.flags.DEFINE_integer('epoch_size', 20846, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process in a batch.""")
 Wedges per in this protobuf: 
 [586, 529, 580, 618, 584, 640, 458, 569, 603, 481, 560, 139, 565, 531, 317, 351, 400, 635, 570, 334, 484, 500, 428, 602, 335, 591, 466, 583, 272, 428, 572, 540, 633, 540, 474, 823, 755, 498, 707, 565]
 
 80 Patients complete, 41370 Wedges saved
+tf.app.flags.DEFINE_integer('epoch_size', 20524, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 10262, """Number of images to process in a batch.""")
 Wedges per in this protobuf: 
 [813, 684, 311, 357, 397, 556, 449, 475, 708, 291, 543, 460, 602, 465, 417, 287, 388, 630, 549, 632, 452, 418, 400, 758, 705, 423, 619, 373, 245, 342, 505, 424, 410, 292, 621, 622, 438, 455, 725, 1283]
 
 120 Patients complete, 59751 Wedges saved
+tf.app.flags.DEFINE_integer('epoch_size', 18381, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
 Wedges per in this protobuf: 
 [225, 507, 802, 348, 298, 379, 628, 55, 554, 259, 329, 287, 362, 788, 320, 423, 165, 566, 760, 419, 254, 495, 501, 314, 432, 555, 727, 605, 386, 682, 547, 320, 522, 366, 503, 480, 631, 485, 799, 303]
 
 160 Patients complete, 80922 Wedges saved
+tf.app.flags.DEFINE_integer('epoch_size', 21171, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 7057, """Number of images to process in a batch.""")
 Wedges per in this protobuf: 
 [319, 340, 782, 589, 782, 282, 489, 600, 209, 355, 553, 516, 420, 832, 656, 496, 634, 465, 616, 891, 542, 469, 451, 247, 557, 77, 487, 722, 813, 562, 621, 429, 845, 350, 469, 574, 479, 611, 361, 679]
 
 200 Patients complete, 102154 Wedges saved
+tf.app.flags.DEFINE_integer('epoch_size', 21232, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 5308, """Number of images to process in a batch.""")
 Wedges per in this protobuf: 
 [522, 542, 566, 616, 1113, 228, 350, 654, 276, 539, 382, 445, 767, 520, 835, 475, 522, 546, 303, 1012, 382, 537, 266, 374, 349, 299, 682, 761, 574, 557, 418, 426, 565, 676, 450, 748, 613, 359, 458, 525]
 
 221 Patients saved, 57 failed[No label, Label out of range, Failed load] [37, 19, 1]
+tf.app.flags.DEFINE_integer('epoch_size', 12047, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('batch_size', 12047, """Number of images to process in a batch.""")
 Creating final protocol buffer
 221 patients complete, 114201 images saved
 Patients in this protobuf: 

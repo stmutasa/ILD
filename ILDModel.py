@@ -53,6 +53,15 @@ def forward_pass(images, phase_train):
     conv = sdn.inception_layer_3d('conv4C', conv, K * 8, 1, 1, phase_train=phase_train)
     conv = sdn.inception_layer_3d('conv4D', conv, K * 8, 1, 1, phase_train=phase_train)
 
+    # conv = sdn.inception_layer_3d('conv4', conv, K * 8, 1, 1, phase_train=phase_train)
+    # conv = sdn.residual_layer_3d('Rconva', conv, 3, K * 8, 1, phase_train=phase_train)
+    # conv = sdn.inception_layer_3d('conv4b', conv, K * 8, 1, 1, phase_train=phase_train)
+    # conv = sdn.residual_layer_3d('Rconvb', conv, 3, K * 8, 1, phase_train=phase_train)
+    # conv = sdn.inception_layer_3d('conv4C', conv, K * 8, 1, 1, phase_train=phase_train)
+    # conv = sdn.residual_layer_3d('Rconvc', conv, 3, K * 8, 1, phase_train=phase_train)
+    # conv = sdn.inception_layer_3d('conv4D', conv, K * 8, 1, 1, phase_train=phase_train)
+    # conv = sdn.residual_layer_3d('Rconvd', conv, 3, K * 8, 1, phase_train=phase_train)
+
     # Linear layers
     linear = sdn.fc7_layer_3d('FC7a', conv, 16, True, phase_train, FLAGS.dropout_factor, override=3, BN=True)
     linear = sdn.linear_layer('Linear', linear, 4, True, phase_train, FLAGS.dropout_factor, BN=True)
@@ -128,9 +137,13 @@ def backward_pass(total_loss):
     # Print summary of total loss
     tf.summary.scalar('Total_Loss', total_loss)
 
+    # Decay the learning rate
+    dk_steps = int((FLAGS.epoch_size / FLAGS.batch_size) * 100)
+    lr_decayed = tf.train.cosine_decay_restarts(FLAGS.learning_rate, global_step, dk_steps)
+
     # Compute the gradients. NAdam optimizer came in tensorflow 1.2
-    opt = tf.contrib.opt.NadamOptimizer(learning_rate=FLAGS.learning_rate, beta1=FLAGS.beta1,
-                                        beta2=FLAGS.beta2, epsilon=1e-8)
+    opt = tf.contrib.opt.NadamOptimizer(learning_rate=lr_decayed, beta1=FLAGS.beta1,
+                                        beta2=FLAGS.beta2, epsilon=0.1)
 
     # Compute the gradients
     gradients = opt.compute_gradients(total_loss)

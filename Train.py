@@ -22,17 +22,17 @@ FLAGS = tf.app.flags.FLAGS
 # Define some of the data variables
 tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data directory.""")
 tf.app.flags.DEFINE_string('training_dir', 'training/', """Path to the training directory.""")
-tf.app.flags.DEFINE_string('test_files', '_2', """Testing files""")
+tf.app.flags.DEFINE_string('test_files', '_1', """Testing files""")
 tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions to save files""")
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the network input""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 
 # Define some of the immutable variables
-tf.app.flags.DEFINE_integer('num_epochs', 200, """Number of epochs to run""")
-tf.app.flags.DEFINE_integer('epoch_size', 93677, """How many examples""")
+tf.app.flags.DEFINE_integer('num_epochs', 400, """Number of epochs to run""")
+tf.app.flags.DEFINE_integer('epoch_size', 93000, """How many examples""")
 tf.app.flags.DEFINE_integer('print_interval', 5, """How often to print a summary to console during training""")
-tf.app.flags.DEFINE_integer('checkpoint_interval', 25, """How many Epochs to wait before saving a checkpoint""")
-tf.app.flags.DEFINE_integer('batch_size', 128, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('checkpoint_interval', 15, """How many Epochs to wait before saving a checkpoint""")
+tf.app.flags.DEFINE_integer('batch_size', 512, """Number of images to process in a batch.""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -42,13 +42,13 @@ tf.app.flags.DEFINE_float('loss_factor', 1.0, """The loss weighting factor""")
 tf.app.flags.DEFINE_integer('loss_class', 1, """For classes this and above, apply the above loss factor.""")
 
 # Hyperparameters to control the optimizer
-tf.app.flags.DEFINE_float('learning_rate',1e-3, """Initial learning rate""")
+tf.app.flags.DEFINE_float('learning_rate', 1e-2, """Initial learning rate""")
 tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimizer""")
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Directory control
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('RunInfo', 'Wedge/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Wedge_1_1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 0, """Which GPU to use""")
 
 def train():
@@ -102,14 +102,14 @@ def train():
         var_restore = var_ema.variables_to_restore()
 
         # Initialize the saver
-        saver = tf.train.Saver(var_restore, max_to_keep=4)
+        saver = tf.train.Saver(var_restore, max_to_keep=8)
 
         # -------------------  Session Initializer  ----------------------
 
         # Set the intervals
-        max_steps = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.num_epochs)
-        print_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.print_interval)
-        checkpoint_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.checkpoint_interval)
+        max_steps = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.num_epochs) + 1
+        print_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.print_interval) + 1
+        checkpoint_interval = int((FLAGS.epoch_size / FLAGS.batch_size) * FLAGS.checkpoint_interval) + 1
         print('Max Steps: %s, Print Interval: %s, Checkpoint: %s' % (max_steps, print_interval, checkpoint_interval))
 
         # Print Run info
