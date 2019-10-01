@@ -28,13 +28,28 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
 tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
-tf.app.flags.DEFINE_string('test_files', '_1', """Files for testing have this name""")
 tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 20846, """How many images were loaded""")
+tf.app.flags.DEFINE_integer('epoch_size', 20846, """Batch 1""")
 tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20524, """Batch 2""")
+# tf.app.flags.DEFINE_integer('batch_size', 10262, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 18381, """Batch 3""")
+# tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 21171, """Batch 4""")
+# tf.app.flags.DEFINE_integer('batch_size', 7057, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 21232, """Batch 5""")
+# tf.app.flags.DEFINE_integer('batch_size', 5308, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 11961, """Batch Fin""")
+# tf.app.flags.DEFINE_integer('batch_size', 3987, """Number of images to process in a batch.""")
+
+# Testing parameters
+tf.app.flags.DEFINE_string('RunInfo', 'Wedge_1_1/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
+tf.app.flags.DEFINE_float('cutoff', 21.0, """cutoff for percent of ILD wedges""")
+tf.app.flags.DEFINE_string('test_files', '_1', """Files for testing have this name""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -47,10 +62,6 @@ tf.app.flags.DEFINE_integer('loss_class', 1, """For classes this and above, appl
 tf.app.flags.DEFINE_float('learning_rate', 1e-3, """Initial learning rate""")
 tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimizer""")
 tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
-
-# Multi GPU Training parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Wedge_1_1/', """Unique file name for this training run""")
-tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
 
 # Define a custom training class
 def test():
@@ -137,7 +148,7 @@ def test():
 
                 # Tester instance
                 sdt = SDT.SODTester(True, False)
-                label_track, logit_track = [], []
+                label_track, logit_track, pt_track = [], [], []
 
                 try:
                     while step < max_steps:
@@ -145,16 +156,15 @@ def test():
                         # Load some metrics for testing
                         lbl1, logtz, pt = mon_sess.run([labels, logits, examples['accno']], feed_dict={phase_train: False})
 
-                        # Combine predictions
-                        data, lbl, logitz = combine_predictions_thresh(lbl1, logtz, pt, FLAGS.batch_size)
-
                         # If first step then create the entry
                         if step == 0:
-                            label_track = np.copy(lbl)
-                            logit_track = np.copy(logitz)
+                            label_track = np.copy(lbl1)
+                            logit_track = np.copy(logtz)
+                            pt_track = np.copy(pt)
                         else:
-                            label_track = np.concatenate([label_track, lbl])
-                            logit_track = np.concatenate([logit_track, logitz])
+                            label_track = np.concatenate([label_track, lbl1])
+                            logit_track = np.concatenate([logit_track, logtz])
+                            pt_track = np.concatenate([pt_track, pt])
 
                         # Increment step
                         step += 1
@@ -165,7 +175,10 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
-                    sdt.calculate_metrics(logit_track, label_track, 1, step)
+                    # Combine predictions
+                    data, lbl, logitz = combine_predictions_thresh(label_track, logit_track, pt_track, FLAGS.epoch_size,
+                                                                   percent=FLAGS.cutoff)
+                    sdt.calculate_metrics(logitz, lbl, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
@@ -192,9 +205,12 @@ def test():
 
             # Break if this is the final checkpoint
             try:
-                if int(Epoch) > 270 in Epoch: break
+                if int(Epoch) > 299 in Epoch: break
             except:
-                if '300' in Epoch: break
+                if '405' in Epoch: break
+
+            # TODO: Test
+            break
 
             # Print divider
             print('-' * 70)
@@ -215,14 +231,14 @@ def test():
 
 
 def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(400)
+    time.sleep(0)
     if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
     tf.gfile.MakeDirs('testing/' + FLAGS.RunInfo)
     test()
 
 
-def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, percent=10, pos_cls=1, threshold=0.5):
+def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, percent=8.4, pos_cls=1, threshold=0.5):
     """
     Combines multi parametric predictions into one group
     :param ground_truth: raw labels from sess.run
@@ -291,8 +307,8 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
         dic['avg'] = np.squeeze(avg)
         dic['ID'] = idx
 
-        # # TODO: Testing
-        # print ('Lbl: %s, NPW: %.2f %% (%s), Tot: %s' %(dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
+        # TODO: Testing
+        print('Lbl: %s, NPW: %.2f %% (%s), Tot: %s' % (dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
 
     return data, np.squeeze(labba), np.squeeze(logga)
 
