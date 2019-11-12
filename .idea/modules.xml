@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/ILD.iml" filepath="$PROJECT_DIR$/.idea/ILD.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../SODKit/.idea/SODKit.iml" filepath="$PROJECT_DIR$/../SODKit/.idea/SODKit.iml" />
     </modules>
   </component>
 </project>
