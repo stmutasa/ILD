@@ -8,6 +8,7 @@ import SODLoader as SDL
 import SOD_Display as SDD
 
 from pathlib import Path
+import os
 from random import shuffle
 import matplotlib.pyplot as plt
 
@@ -210,50 +211,63 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
 
 # Load the protobuf
 def load_protobuf(training=True):
-
     """
-    Loads the protocol buffer into a form to send to shuffle
+    Loads the protocol buffer into a form to send to shuffle. To oversample classes we made some mods...
+    Load with parallel interleave -> Prefetch -> Large Shuffle -> Parse labels -> Undersample map -> Flat Map
+    -> Prefetch -> Oversample Map -> Flat Map -> Small shuffle -> Prefetch -> Parse images -> Augment -> Prefetch -> Batch
     """
 
-    # Define filenames
+    # Lambda functions for retreiving our protobuf
+    _parse_labels = lambda dataset: sdl.load_tfrecord_labels(dataset)
+    _parse_images = lambda dataset: sdl.load_tfrecord_images(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
+    _parse_all = lambda dataset: sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
+
+    # Load tfrecords with parallel interleave if training
     if training:
-        all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
-        filenames = [x for x in all_files if FLAGS.test_files not in x]
+        filenames = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
+        files = tf.data.Dataset.list_files(os.path.join(FLAGS.data_dir, '*.tfrecords'))
+        dataset = files.interleave(tf.data.TFRecordDataset, cycle_length=len(filenames),
+                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        print('******** Loading Files: ', filenames)
     else:
-        all_files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
-        filenames = [x for x in all_files if FLAGS.test_files in x]
+        files = sdl.retreive_filelist('tfrecords', False, path=FLAGS.data_dir)
+        dataset = tf.data.TFRecordDataset(files, num_parallel_reads=1)
+        print('******** Loading Files: ', files)
 
-    print('******** Loading Files: ', filenames)
+    # Shuffle and repeat if training phase
+    if training:
 
-    # Create a dataset from the protobuf
-    dataset = tf.data.TFRecordDataset(filenames)
+        # Define our undersample and oversample filtering functions
+        _filter_fn = lambda x: sdl.undersample_filter(x['label'], actual_dists=[0.33, 0.67], desired_dists=[.5, .5])
+        _undersample_filter = lambda x: dataset.filter(_filter_fn)
+        _oversample_filter = lambda x: tf.data.Dataset.from_tensors(x).repeat(
+            sdl.oversample_class(x['label'], actual_dists=[0.33, 0.67], desired_dists=[.5, .5]))
 
-    # Shuffle the entire dataset then create a batch
-    if training: dataset = dataset.shuffle(buffer_size=FLAGS.epoch_size)
+        # Large shuffle, repeat for 100 epochs then parse the labels only
+        dataset = dataset.shuffle(buffer_size=FLAGS.epoch_size)
+        dataset = dataset.repeat(100)
+        dataset = dataset.map(_parse_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    # Load the tfrecords into the dataset with the first map call
-    _records_call = lambda dataset: \
-        sdl.load_tfrecords(dataset, [10, FLAGS.box_dims, FLAGS.box_dims], tf.int16)
+        # Now we have the labels, undersample then oversample.
+        # Map allows us to do it in parallel and flat_map's identity function merges the survivors
+        dataset = dataset.map(_undersample_filter, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.flat_map(lambda x: x)
+        dataset = dataset.map(_oversample_filter, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.flat_map(lambda x: x)
 
-    # Parse the record into tensors
-    dataset = dataset.map(_records_call, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        # Now perform a small shuffle in case we duplicated neighbors, then prefetch before the final map
+        dataset = dataset.shuffle(buffer_size=100)
+        dataset = dataset.map(_parse_images, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    # Fuse the mapping and batching
+    else:
+        dataset = dataset.map(_parse_all, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     scope = 'data_augmentation' if training else 'input'
     with tf.name_scope(scope):
-
-        # Map the data set
         dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    # Batch the dataset and drop remainder. Can try batch before map if map is small
-    dataset = dataset.batch(FLAGS.batch_size, drop_remainder=True)
-
-    # cache and Prefetch
-    dataset = dataset.cache()
-    dataset = dataset.prefetch(buffer_size=FLAGS.batch_size)
-
-    # Repeat input indefinitely
-    dataset = dataset.repeat()
+    # Batch and prefetch
+    dataset = dataset.batch(FLAGS.batch_size, drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
 
     # Make an initializable iterator
     iterator = dataset.make_initializable_iterator()
@@ -292,7 +306,7 @@ class DataPreprocessor(object):
         image = tf.image.random_contrast(image, lower=0.995, upper=1.005)
 
         # For noise, first randomly determine how 'noisy' this study will be
-        T_noise = tf.random_uniform([1], 0, 0.02)
+        T_noise = tf.random_uniform([], 0, 0.02)
 
         # Create a poisson noise array
         noise = tf.random_uniform(shape=[10, FLAGS.network_dims, FLAGS.network_dims], minval=-T_noise, maxval=T_noise)

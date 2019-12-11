@@ -81,5 +81,7 @@ TESTING SET: (512x512x3 files) Aka no Z dimensions
 40 Patients and 1080 examples in this dictionary
 21 Patients and 567 examples in this dictionary
 
+ratio = [0.33, 0.67]
+
 
 

@@ -26,18 +26,19 @@ FLAGS = tf.app.flags.FLAGS
 
 # Define some of the immutable variables
 tf.app.flags.DEFINE_string('train_dir', 'training/', """Directory to write event logs and save checkpoint files""")
-tf.app.flags.DEFINE_string('data_dir', 'data/train/', """Path to the data directory.""")
+tf.app.flags.DEFINE_string('data_dir', 'data/test/', """Path to the data directory.""")
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
 tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
+tf.app.flags.DEFINE_integer('repeats', 1, """How many epochs to repeat before shuffle""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 20846, """Batch 1""")
-tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20846, """Batch 1""")
+# tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_integer('epoch_size', 20524, """Batch 2""")
 # tf.app.flags.DEFINE_integer('batch_size', 10262, """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_integer('epoch_size', 18381, """Batch 3""")
-# tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 18381, """Batch 3""")
+tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_integer('epoch_size', 21171, """Batch 4""")
 # tf.app.flags.DEFINE_integer('batch_size', 7057, """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_integer('epoch_size', 21232, """Batch 5""")
@@ -46,10 +47,10 @@ tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process 
 # tf.app.flags.DEFINE_integer('batch_size', 3987, """Number of images to process in a batch.""")
 
 # Testing parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Wedge_1_1/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Fixed1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
-tf.app.flags.DEFINE_float('cutoff', 21.0, """cutoff for percent of ILD wedges""")
-tf.app.flags.DEFINE_string('test_files', '_1', """Files for testing have this name""")
+tf.app.flags.DEFINE_float('cutoff', 14.0, """cutoff for percent of ILD wedges""")
+tf.app.flags.DEFINE_string('test_files', '_3', """Files for testing have this name""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -209,21 +210,21 @@ def test():
             except:
                 if '405' in Epoch: break
 
-            # TODO: Test
-            break
+            # # TODO: Test
+            # break
 
             # Print divider
             print('-' * 70)
 
             # Otherwise check folder for changes
-            filecheck = glob.glob(FLAGS.train_dir+FLAGS.RunInfo + '*')
+            filecheck = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')
             newfilec = filecheck
 
             # Sleep if no changes
             while filecheck == newfilec:
 
                 # Sleep an amount of time proportional to the epoch size
-                time.sleep(120)
+                time.sleep(10)
 
                 # Recheck the folder for changes
                 newfilec = glob.glob(FLAGS.train_dir+FLAGS.RunInfo + '*')

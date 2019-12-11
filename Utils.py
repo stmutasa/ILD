@@ -163,5 +163,29 @@ def softmax(x):
     return [a, b]
 
 
+def save_csvs():
+    """
+    Combines all the csvs into one .csv
+    :return:
+    """
+
+    # Load all the dictionaries
+    original = sdl.load_CSV_Dict('Acc', 'data/Original.csv')
+    network = sdl.load_CSV_Dict('Acc', 'data/Outputs.csv')
+    demographics = sdl.load_CSV_Dict('Acc', 'data/Patient_info.csv')
+
+    # Convert all dictionary keys to integers
+    original = {int(k): dic for k, dic in original.items()}
+    demographics = {int(k): dic for k, dic in demographics.items()}
+    network = {int(k[1:-1]): dic for k, dic in network.items()}
+
+    # Save All
+    sdl.save_Dict_CSV(original, 'data/original.csv')
+    sdl.save_Dict_CSV(demographics, 'data/patient_info.csv')
+    sdl.save_Dict_CSV(network, 'data/outputs.csv')
+
+
 # save_gender_age()
-combine_csvs()
+# combine_csvs()
+
+save_csvs()
