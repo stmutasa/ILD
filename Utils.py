@@ -12,8 +12,10 @@ from random import shuffle
 import matplotlib.pyplot as plt
 from scipy.special import softmax as sm
 import csv
+import os
 
-home_dir = str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/'
+# Define the data directory to use
+home_dir = str(Path.home()) + '/Code/Datasets/CT_Chest_ILD/'
 
 sdt = SDT.SODTester(True, False)
 sdd = SDD.SOD_Display()
@@ -185,7 +187,38 @@ def save_csvs():
     sdl.save_Dict_CSV(network, 'data/outputs.csv')
 
 
+def make_gifs():
+    """
+    Saves gifs of the overlaid masks and actual volumes
+    """
+
+    filenames = sdl.retreive_filelist('nii.gz', include_subfolders=True, path='data/Viz')
+    filenames = [x for x in filenames if 'vol' in x]
+
+    for file in filenames:
+        # Load volume and mask
+        volume = sdl.load_NIFTY(file)
+        mask_file = file.replace('vol', 'mask')
+        mask = sdl.load_NIFTY(mask_file)
+
+        # Swap axes, currently its upside-down saggital
+        volume, mask = np.swapaxes(volume, 0, 1), np.swapaxes(mask, 0, 1)
+        volume, mask = np.swapaxes(volume, 1, 2), np.swapaxes(mask, 1, 2)
+
+        # Save gif of volume
+        vol_save = 'data/Viz/gifs/' + os.path.basename(file).replace('.nii.gz', '')
+        sdl.save_gif_volume(volume, vol_save, swapaxes=False)
+
+        # Save overlaid gif
+        overlay_gif = vol_save + '_overlay'
+        overlay = sdd.display_whole_vol_overlay(volume, mask, plot=True, ret=True)
+        sdl.save_gif_volume(overlay, overlay_gif)
+
+        # Now save prediction gif
+        pred_gif = vol_save + '_pred.gif'
+        sdt.plot_img_and_mask3D(volume, mask, mask, pred_gif)
+
+
 # save_gender_age()
 # combine_csvs()
-
-save_csvs()
+make_gifs()

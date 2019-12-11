@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 FLAGS = tf.app.flags.FLAGS
 
 # Define the data directory to use
-home_dir = str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/'
+home_dir = str(Path.home()) + '/Code/Datasets/CT_Chest_ILD/'
 
 sdl = SDL.SODLoader(data_root=home_dir)
 sdd = SDD.SOD_Display()
@@ -325,4 +325,169 @@ class DataPreprocessor(object):
 
     return record
 
-# pre_proc_wedge_3d()
+
+# For loading the files for a 2.5 D network
+def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
+    """
+    Makes wedges for visualization
+    """
+
+    # First retreive the filenames
+    filenames = sdl.retreive_filelist('*', path=home_dir, include_subfolders=True)
+    shuffle(filenames)
+
+    # retrieve the labels
+    label_file = sdl.retreive_filelist('csv', path=home_dir, include_subfolders=True)[0]
+    labels = sdl.load_CSV_Dict('Accno', label_file)
+
+    # global variables
+    index, pts, per = 0, 0, 0
+    data, track = {}, {}
+    display, failures = [], [0, 0, 0]
+
+    # Only include these files
+    included = [2831875, 2474151, 3022266, 2567796, 2930847, 2554416, 3158609, 2079411]
+
+    # Loop through all the files
+    for file in filenames:
+
+        # First just load the headers:
+        try:
+            header = sdl.load_DICOM_Header(file, True)
+        except:
+            continue
+        accno = int(header['tags'].AccessionNumber)
+        if accno not in included: continue
+
+        # Now load the volumes
+        try:
+            volume, header = sdl.load_DICOM_3D(file, return_header=True, sort='Lung', display=True)
+        except:
+            print('Unable to load: ', file, '\n')
+            failures[2] += 1
+            continue
+
+        # Retreive pt info
+        Accno = header['tags'].AccessionNumber
+        MRN = header['tags'].PatientID
+        spacing = header['spacing']
+        try:
+            label_raw = int(labels[Accno]['Label'])
+        except:
+            failures[0] += 1
+            del volume
+            continue
+
+        # Fix labels per Hiram
+        if label_raw < 2:
+            label = 1
+        elif label_raw == 3:
+            label = 0
+        else:
+            failures[1] += 1
+            del volume
+            continue
+
+        # Display volumes accidentally loaded as coronal
+        if volume.shape[1] != volume.shape[2]:
+            print('\n ********* Pt %s weird shaped %s\n' % (Accno, volume.shape))
+
+        # Fix strange z axis spacing
+        if spacing[0] > 10: spacing[0] = 1
+
+        # Resize the volume
+        if volume.shape[1] != dims:
+            volume = sdl.resize_volume(volume, np.int16, dims, dims)
+
+        # Generate a lung mask
+        mask = sdl.create_lung_mask(volume, close=12, dilate=15)
+
+        # window the lungs
+        volume = sdl.window_image(volume, -600, 750)
+
+        # Calculate the inferior extent of the mask
+        for slice in range(mask.shape[0]):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                inf = slice
+                break
+
+        # Calculate superior extent
+        for slice in range(mask.shape[0] - 1, 0, -1):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                sup = slice
+                break
+
+        # If the superior extent is max, we likely have trachea, add 10 mm
+        if sup > volume.shape[0] - 3:
+            sup = int(sup - 10 // spacing[0])
+
+        # Find the middle of the lungs
+        midlung_slice = inf + ((sup - inf) // 2)
+
+        # Calculate how big the box should be
+        box_size = (np.asarray(size) // spacing).astype(np.int16)
+        true_stride = (np.asarray(stride) // spacing).astype(np.int16)
+
+        # For counting
+        counts = index
+
+        # Loop through and create the wedges
+        for z in range(inf, midlung_slice, true_stride[0]):
+            for y in range(0, volume.shape[1], true_stride[1]):
+                for x in range(0, volume.shape[2], true_stride[2]):
+
+                    # Create a segment wedge here
+                    wedge_check, _ = sdl.generate_box(mask, [z, y, x], box_size[1], z_overwrite=box_size[0])
+
+                    # Check if there is > 50% lung here, if not, discard and continue
+                    ratio = sdl.return_nonzero_pixel_ratio(wedge_check, 1, True)
+                    if (ratio < 0.5) or (ratio > 0.99999):
+                        del wedge_check
+                        continue
+
+                    # Sucess, make a wedge!
+                    wedge, _ = sdl.generate_box(volume, [z, y, x], box_size[1], z_overwrite=box_size[0])
+
+                    # Resample the wedge
+                    wedge, _ = sdl.resample(wedge, spacing, new_spacing=[1, 1, 1])
+                    wedge = sdl.resize_volume(wedge, np.int16, size[2], size[1], size[0])
+
+                    # Save
+                    data[index] = {'data': wedge, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN,
+                                   'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y, 'x': x}
+                    index += 1
+
+                    # Garbage
+                    del wedge, wedge_check
+
+        # Done with patient, if there are no wedges saved, reduce the stride
+        counts = index - counts
+
+        # Save volume and mask
+        vol_path = 'data/Viz/volumes/%s_vol.nii.gz' % accno
+        mask_path = 'data/Viz/volumes/%s_mask.nii.gz' % accno
+        sdl.save_volume(volume, vol_path)
+        sdl.save_volume(mask.astype(np.int16), mask_path)
+        print('\n***** Pt %s with %s counts, Saved vol and mask %s' % (accno, counts, volume.shape))
+
+        display.append(counts)
+        pts += 1
+        del volume, mask
+
+    # All patients done, print the summary message
+    print('%s Patients saved, %s failed[No label, Label out of range, Failed load] %s' % (pts, sum(failures), failures))
+
+    # Now create a final protocol buffer
+    print('Creating final protocol buffer')
+    if data:
+        print('%s patients complete, %s images saved' % (pts, index))
+        print('Patients in this protobuf: \n%s' % display)
+        sdl.save_tfrecords(data, 1, file_root='data/Viz/Viz_Egs')
+        sdl.save_dict_filetypes(data[0])
+        del data, display
