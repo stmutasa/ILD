@@ -13,8 +13,8 @@ import tensorflow as tf
 import SODTester as SDT
 import SODLoader as SDL
 import SOD_Display as SDD
-import glob
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 sdl = SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
 sdd = SDD.SOD_Display()
@@ -32,11 +32,11 @@ tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures"
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 18381, """Batch 3""")
-tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 1186, """Batch 3""")
+tf.app.flags.DEFINE_integer('batch_size', 1186, """Number of images to process in a batch.""")
 
 # Testing parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Viz/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Fixed1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
 tf.app.flags.DEFINE_float('cutoff', 14.0, """cutoff for percent of ILD wedges""")
 
@@ -71,6 +71,7 @@ def test():
 
         # Labels
         labels = examples['label']
+        softmaxes = tf.nn.softmax(logits)
 
         # Initialize variables operation
         var_init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -121,18 +122,9 @@ def test():
                     while step < max_steps:
 
                         # Load some metrics for testing
-                        lbl1, logtz, pt, exs = mon_sess.run([labels, logits, examples['accno']],
-                                                            feed_dict={phase_train: False})
-
-                        # If first step then create the entry
-                        if step == 0:
-                            label_track = np.copy(lbl1)
-                            logit_track = np.copy(logtz)
-                            pt_track = np.copy(pt)
-                        else:
-                            label_track = np.concatenate([label_track, lbl1])
-                            logit_track = np.concatenate([logit_track, logtz])
-                            pt_track = np.concatenate([pt_track, pt])
+                        lbl1, logtz, pt, exs, sfm = mon_sess.run(
+                            [labels, logits, examples['accno'], examples, softmaxes],
+                            feed_dict={phase_train: False})
 
                         # Increment step
                         step += 1
@@ -143,8 +135,12 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
-                    data, lbl, logitz = combine_predictions_thresh(label_track, logit_track, pt_track, FLAGS.epoch_size,
+                    data, lbl, logitz = combine_predictions_thresh(lbl1, logtz, pt, FLAGS.epoch_size,
                                                                    percent=FLAGS.cutoff)
+
+                    # Merge the boxes
+                    merge_boxes(exs, sfm)
+
                     sdt.calculate_metrics(logitz, lbl, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
@@ -156,11 +152,7 @@ def test():
             break
 
 
-def main(argv=None):  # pylint: disable=unused-argument
-    time.sleep(0)
-    if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
-        tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
-    tf.gfile.MakeDirs('testing/' + FLAGS.RunInfo)
+def main(argv=None):
     test()
 
 
@@ -235,9 +227,100 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
 
         # TODO: Testing
         print('Acc: %s Lbl: %s, NPW: %.2f %% (%s), Tot: %s' % (
-        idx, dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
+            idx, dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
 
     return data, np.squeeze(labba), np.squeeze(logga)
+
+
+def merge_boxes(exs, preds):
+    """
+    Merge the predicted viz boxes to one. Coordinates are the center of the cube
+    Keep track of patients and make empty box
+    Put key box at 0,0
+    Loop through all boxes and place them in volume
+    if new patient place in new volume
+    """
+
+    # Saved_vols =
+
+    #  Variables to track
+    last_acc, curr_vol = '000', 0
+
+    # Array to track all the volumes, wont be the same size
+    volumes, volume_made, wcnt = [], False, 0
+
+    # The original stride and size we made the boxes
+    size = np.array([10, 40, 40], np.float32)
+    stride = np.array([10, 40, 40], np.float32)
+
+    # Loop through every box
+    for i in range(FLAGS.batch_size):
+
+        # If this is the first box in this accno, make an empty volume equivalent to the size of the real volume
+        acc = exs['accno'][i].decode('utf-8')
+        if acc != last_acc:
+
+            # First append the (now finished) prior volume to the array
+            if volume_made:
+                sdd.display_volume(img_vols, False)
+                save_path = 'data/Viz/scans/%s_preds_full.nii.gz' % last_acc
+                box_path = 'data/Viz/scans/%s_box.nii.gz' % last_acc
+                print('Applied %s wedges with shape %s to %s volume and saving box and preds ' % (
+                wcnt, wedge_shape, volume.shape))
+                sdl.save_volume(volume, save_path)
+                sdl.save_volume(img_vols, box_path)
+                wcnt = 0
+                del volume, img_vols
+
+            # Get shape of original real volume, fill in a dummy pixel as 1
+            orig_shape = np.array([exs['orig_volz'][i], exs['orig_voly'][i], exs['orig_voly'][i]], np.int16)
+            volume = np.zeros(shape=orig_shape, dtype=np.float32)
+            img_vols = np.zeros(shape=orig_shape, dtype=np.float32)
+            volume[0, 0, 0] = 1.0
+
+        # Get the real world stride and original spacing of the boxes
+        true_stride = np.array([exs['true_stridez'][i], exs['true_stridey'][i], exs['true_stridey'][i]], np.float32)
+        true_size = np.array([exs['true_sizez'][i], exs['true_sizey'][i], exs['true_sizey'][i]], np.float32)
+        orig_spacing_ck = stride / true_stride
+        orig_spacing = size / true_size
+
+        # Get and resample the wedge to it's real world size (mm)
+        wedge = exs['data'][i]
+        wedge, _ = sdl.resample(wedge, np.array([1, 1, 1]), new_spacing=orig_spacing)
+
+        # Wedge should now be roughly equal to true size
+        if wedge.shape[1] != true_size[1]: wedge = sdl.resize_volume(wedge, np.float32, true_size[1], true_size[2],
+                                                                     true_size[0])
+
+        # Calc start and end position (coordinates are center spot)
+        cen = np.array([exs['z'][i], exs['y'][i], exs['x'][i]], np.float32)
+        _st = (cen - (true_stride / 2)).astype(np.int16)
+        _fn = (cen + (true_stride / 2)).astype(np.int16)
+
+        # Apply the value to the volume spaced by STRIDE
+        value = float(preds[i][1])
+        volume[_st[0]:_fn[0], _st[1]:_fn[1], _st[2]:_fn[2]] = value
+
+        # Generate the box map spaced by SIZE
+        _st = (cen - (true_size / 2)).astype(np.int16)
+        _fn = (cen + (true_size / 2)).astype(np.int16)
+        try:
+            img_vols[_st[0]:_fn[0], _st[1]:_fn[1], _st[2]:_fn[2]] = wedge
+        except:
+            try:
+                img_vols[_st[0]:_fn[0], _st[1]:(_fn[1] + 1), _st[2]:(_fn[2] + 1)] = wedge
+            except:
+                img_vols[_st[0]:_fn[0], _st[1]:(_fn[1] - 1), _st[2]:(_fn[2] - 1)] = wedge
+
+        volume_made = True
+        wcnt += 1
+        wedge_shape = wedge.shape
+        del wedge
+
+        # finally track values
+        last_acc = acc
+
+    plt.show()
 
 
 if __name__ == '__main__':

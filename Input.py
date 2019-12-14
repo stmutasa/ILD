@@ -328,8 +328,10 @@ class DataPreprocessor(object):
 
 # For loading the files for a 2.5 D network
 def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
+
     """
     Makes wedges for visualization
+    We need to save extra information to make this pretty
     """
 
     # First retreive the filenames
@@ -460,7 +462,10 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
 
                     # Save
                     data[index] = {'data': wedge, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN,
-                                   'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y, 'x': x}
+                                   'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y, 'x': x,
+                                   'true_sizez': box_size[0], 'true_sizey': box_size[1], 'true_stridey': true_stride[1],
+                                   'true_stridez': true_stride[0], 'orig_volz': volume.shape[0],
+                                   'orig_voly': volume.shape[1]}
                     index += 1
 
                     # Garbage
@@ -470,10 +475,10 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         counts = index - counts
 
         # Save volume and mask
-        vol_path = 'data/Viz/volumes/%s_vol.nii.gz' % accno
-        mask_path = 'data/Viz/volumes/%s_mask.nii.gz' % accno
-        sdl.save_volume(volume, vol_path)
-        sdl.save_volume(mask.astype(np.int16), mask_path)
+        # vol_path = 'data/Viz/scans/%s_vol.nii.gz' % accno
+        # mask_path = 'data/Viz/scans/%s_mask.nii.gz' % accno
+        # sdl.save_volume(volume, vol_path)
+        # sdl.save_volume(mask.astype(np.int16), mask_path)
         print('\n***** Pt %s with %s counts, Saved vol and mask %s' % (accno, counts, volume.shape))
 
         display.append(counts)
@@ -489,5 +494,7 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         print('%s patients complete, %s images saved' % (pts, index))
         print('Patients in this protobuf: \n%s' % display)
         sdl.save_tfrecords(data, 1, file_root='data/Viz/Viz_Egs')
-        sdl.save_dict_filetypes(data[0])
+        sdl.save_dict_filetypes(data[0], data_root='data/Viz/filetypes')
         del data, display
+
+# make_viz_egs(stride=[5, 20, 20])

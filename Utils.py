@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from scipy.special import softmax as sm
 import csv
 import os
+import cv2
+import random
 
 # Define the data directory to use
 home_dir = str(Path.home()) + '/Code/Datasets/CT_Chest_ILD/'
@@ -219,6 +221,132 @@ def make_gifs():
         sdt.plot_img_and_mask3D(volume, mask, mask, pred_gif)
 
 
-# save_gender_age()
-# combine_csvs()
-make_gifs()
+def Viz_heatmap():
+    """
+    Vizualize the generated heatmaps
+    """
+
+    filenames = sdl.retreive_filelist('nii.gz', include_subfolders=True, path='data/Viz')
+    filenames = [x for x in filenames if 'vol' in x]
+    random.shuffle(filenames)
+
+    for file in filenames:
+
+        # Load volumes
+        volume = sdl.load_NIFTY(file)
+        mask_file = file.replace('vol', 'mask')
+        mask = sdl.load_NIFTY(mask_file)
+        heat_file = file.replace('vol', 'preds')
+        # heat_file = file.replace('vol', 'preds_full')
+        heatmap = sdl.load_NIFTY(heat_file)
+        regen_file = file.replace('vol', 'box')
+        regen_vol = sdl.load_NIFTY(regen_file)
+
+        # Swap axes, currently its upside-down saggital
+        volume, mask, heatmap, regen_vol = np.swapaxes(volume, 0, 1), np.swapaxes(mask, 0, 1), np.swapaxes(heatmap, 0,
+                                                                                                           1), np.swapaxes(
+            regen_vol, 0, 1)
+        volume, mask, heatmap, regen_vol = np.swapaxes(volume, 1, 2), np.swapaxes(mask, 1, 2), np.swapaxes(heatmap, 1,
+                                                                                                           2), np.swapaxes(
+            regen_vol, 1, 2)
+
+        # Normalize volume for heatmap overlay, we don't want negative numbers!!
+        volume = volume.astype(np.float32)
+        volume += 1500
+        volume /= 1500
+
+        # Generate overlay
+        overlay = []
+        for z in range(volume.shape[0]):
+            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z]))
+        overlay = np.asarray(overlay)
+
+        # Save file names
+        volume_gif_savefile = 'data/Viz/gifs/' + os.path.basename(file).replace('.nii.gz', '')
+        # overlay_gif_savefile = volume_gif_savefile + '_FullOverlay'
+        # overlay_vol_savefile = file.replace('vol', 'FullOverlay')
+        overlay_gif_savefile = volume_gif_savefile + '_Overlay'
+        overlay_vol_savefile = file.replace('vol', 'Overlay')
+
+        # Save the gifs and volumes
+        # sdl.save_gif_volume(volume, volume_gif_savefile, swapaxes=False)
+        sdl.save_gif_volume(overlay, overlay_gif_savefile, norm=False)
+        sdl.save_volume(overlay, overlay_vol_savefile)
+
+    plt.show()
+
+
+def Make_graphs():
+    """
+    Make a myriad of graphs for display:
+    Net and Human Right			3022266	2831875	2554416
+    Net and Human Wrong			3158609	2474151
+    Net Right, Human Wrong			2930847
+    Human Right Net Wrong			2079411
+
+    Boxes made next to input vol		Half stride	dont matta
+    Lung mask next to input			dont matta
+    """
+
+    # Accession numbers to use
+    d1 = [3022266, 2831875, 2554416]
+    d2 = [3158609, 2474151]
+    d3 = [2930847]
+    d4 = [2079411]
+
+    filenames = sdl.retreive_filelist('nii.gz', include_subfolders=True, path='data/Viz')
+    filenames = [x for x in filenames if 'vol' in x]
+    random.shuffle(filenames)
+
+    # Desired grouping
+    des = d4
+
+    for file in filenames:
+
+        # # Skip undesired files
+        accno = int(file.split('/')[-1].split('_')[0])
+        # if accno not in des: continue
+
+        # Load volumes: Fulls for comparisons, halfs for preproc graphs
+        original = sdl.load_NIFTY(file)
+        mask_file = file.replace('vol', 'mask')
+        mask = sdl.load_NIFTY(mask_file)
+        heatmap_file = file.replace('vol', 'preds')
+        try:
+            heatmap = sdl.load_NIFTY(heatmap_file)
+        except:
+            continue
+        box_file = file.replace('vol', 'box')
+        boxes = sdl.load_NIFTY(box_file)
+
+        # Swap axes, currently its upside-down saggital
+        original, mask, heatmap, boxes = np.swapaxes(original, 0, 1), np.swapaxes(mask, 0, 1), np.swapaxes(heatmap, 0,
+                                                                                                           1), np.swapaxes(
+            boxes, 0, 1)
+        original, mask, heatmap, boxes = np.swapaxes(original, 1, 2), np.swapaxes(mask, 1, 2), np.swapaxes(heatmap, 1,
+                                                                                                           2), np.swapaxes(
+            boxes, 1, 2)
+
+        # Normalize volume for heatmap heatmap, we don't want negative numbers!!
+        volume = original.astype(np.float32)
+        volume += 1500
+        volume /= 1500
+
+        # Generate heatmap
+        overlay = []
+        for z in range(volume.shape[0]):
+            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z]))
+        overlay = np.asarray(overlay)
+
+        # Display for us cuz
+        print(accno, file)
+        sdd.display_volume(original)
+        sdd.display_volume(mask)
+        sdd.display_volume(boxes)
+        # sdd.display_volume(overlay)
+        del original, mask, heatmap, boxes, overlay
+
+    plt.show()
+
+# Viz_heatmap()
+# Make_graphs()
