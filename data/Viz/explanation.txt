@@ -1,0 +1,28 @@
+/scans/accno_xxx:
+vol = the full, unadulterated input volume
+box = Reconstructed volume from the boxes used for prediction only
+FullOverlay = 4 channel RGBA overlays of the full volume strided prediction values
+Overlay = 4 channel RGBA overlays of the half volume strided prediction values
+mask = the binary threshold mask used on each volume
+preds = Volume of only the half strided prediction boxes with values = softmax of class 1
+preds = Volume of only the full strided prediction boxes with values = softmax of class 1
+
+/gifs/accon_xxx:
+vol = 5 second gif of the entire input volume
+FullOverlay = 5 second gif of the entire input volume with full strided box heatmap overlaid
+Overlay = 5 second gif of the entire input volume with half strided box heatmap overlaid
+
+/screenshots
+Should be self explanatory
+
+Two levels of striding were used for vizualization
+VIZ @ [10, 40, 40] stride: 8 pts, 1186 wedges [171, 119, 94, 201, 129, 173, 129, 170]
+VIZ @ [5, 20, 20] stride: 8 pts, 10143 wedges [943, 1321, 1197, 1494, 1725, 1577, 1087, 799]
+Accessions used to generate vizualizations: [2831875,2474151,3022266,2567796,2930847,2554416,3158609,2079411]
+
+Viz_egs.tfrecords = half volume strided tfrecords
+Viz_egs_full.tfrecords = full volume strided tfrecords
+
+Utilized fixed1 run
+
+
