@@ -6,7 +6,9 @@ from __future__ import print_function  # use the print function from python 3
 
 import os
 import time
+import math
 import numpy as np
+from random import shuffle
 
 import ILDModel as network
 import tensorflow as tf
@@ -32,8 +34,8 @@ tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures"
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 1186, """Batch 3""")
-tf.app.flags.DEFINE_integer('batch_size', 1186, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 10143, """Batch 3""")
+tf.app.flags.DEFINE_integer('batch_size', 10143, """Number of images to process in a batch.""")
 
 # Testing parameters
 tf.app.flags.DEFINE_string('RunInfo', 'Fixed1/', """Unique file name for this training run""")
@@ -122,7 +124,7 @@ def test():
                     while step < max_steps:
 
                         # Load some metrics for testing
-                        lbl1, logtz, pt, exs, sfm = mon_sess.run(
+                        _labels, _logits, _accnos, _examples, _softmax = mon_sess.run(
                             [labels, logits, examples['accno'], examples, softmaxes],
                             feed_dict={phase_train: False})
 
@@ -135,13 +137,16 @@ def test():
                 finally:
 
                     # Calculate final MAE and ACC
-                    data, lbl, logitz = combine_predictions_thresh(lbl1, logtz, pt, FLAGS.epoch_size,
-                                                                   percent=FLAGS.cutoff)
+                    _data, _labels, _logits = combine_predictions_2(_labels, _softmax, _accnos, FLAGS.epoch_size,
+                                                                    percent=FLAGS.cutoff, examples=_examples)
+
+                    # Save CSV
+                    sdl.save_Dict_CSV(_data, 'filtered_results.csv')
 
                     # Merge the boxes
-                    merge_boxes(exs, sfm)
+                    # merge_boxes(_examples, _softmax)
 
-                    sdt.calculate_metrics(logitz, lbl, 1, step)
+                    sdt.calculate_metrics(_logits, _labels, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
@@ -176,16 +181,117 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
     # The dictionary to return
     data = {}
 
-    # Get the softmax scores
-    sdt = SDT.SODTester(1, 0)
-    predictions = sdt.calc_softmax_old(predictions)
-
     # add up the predictions
     for z in range(batch_size):
 
         # Calc
         if predictions[z, pos_cls] > threshold:
             pw = 1
+        else:
+            pw = 0
+
+        # If we already have the entry then just append
+        try:
+            if serz[z] in data:
+                data[serz[z]]['log0'] = data[serz[z]]['log0'] + predictions[z, 0]
+                data[serz[z]]['log1'] = data[serz[z]]['log1'] + predictions[z, 1]
+                data[serz[z]]['total'] += 1
+                data[serz[z]]['pw'] += pw
+            else:
+                data[serz[z]] = {'label': label[z], 'log0': predictions[z, 0], 'log1': predictions[z, 1],
+                                 'total': 1, 'avg': None, 'pw': pw}
+        except:
+            continue
+
+    # Initialize new labels and logits
+    logga, labba = [], []
+
+    # Combine the data
+    for idx, dic in data.items():
+
+        # Get percentage positive
+        dic['Pos_Percent'] = 100 * dic['pw'] / dic['total']
+
+        # Calculate the new "logits
+        if dic['Pos_Percent'] >= percent:
+            avg = (0, 1)
+        else:
+            avg = (1, 0)
+
+        # Append to trackers
+        labba.append(dic['label'])
+        logga.append(np.squeeze(avg))
+
+        # add to the dictionary
+        dic['avg'] = np.squeeze(avg)
+        dic['ID'] = idx
+
+        # TODO: Testing
+        print('Acc: %s Lbl: %s, NPW: %.2f %% (%s), Tot: %s' % (
+            idx, dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
+
+    return data, np.squeeze(labba), np.squeeze(logga)
+
+
+def combine_predictions_2(ground_truth, softmax, unique_ID, batch_size, percent=14, pos_cls=1, threshold=0.5,
+                          examples=None):
+    """
+    Combines multi parametric predictions into one group
+    :param ground_truth: raw labels from sess.run
+    :param predictions: raw un-normalized logits
+    :param unique_ID: a unique identifier for each patient (not example)
+    :param batch_size: batch size
+    :param percent: The percent above this indicate a positive
+    :param pos_cls: the positive class
+    :param threshold: Softmax threshold
+    :param examples: The examples with xyz data
+    :return: recombined matrix, label array, logitz array
+    """
+
+    # Convert to numpy arrays
+    predictions, label = np.squeeze(softmax.astype(np.float)), np.squeeze(ground_truth.astype(np.float))
+    serz = np.squeeze(unique_ID)
+
+    # The dictionary to return
+    data = {}
+
+    # Loop through every wedge
+    for z in range(batch_size):
+
+        # Get the X, y and Z coordinates of this wedge and which patient
+        wc = [examples['z'][z], examples['y'][z], examples['x'][z]]
+        accno = examples['accno'][z]
+
+        # Get all the wedge indices for this patient
+        _indices = np.squeeze(np.argwhere(examples['accno'] == accno))
+
+        # Further reduce the indices to compare by keeping the same slice or adjacent slice only in z
+        indices = []
+        for i in range(len(_indices)):
+            oi = _indices[i]
+            diff = abs(examples['z'][oi] - wc[0])
+            if diff <= 11:
+                indices.append(oi)
+
+        # Get the indices of only the adjacent wedges in 2D. With 40 pixel separation, 57 is the cutoff
+        neighbors = []
+        for i in range(len(indices)):
+            oi = indices[i]
+            wcn = [examples['z'][oi], examples['y'][oi], examples['x'][oi]]
+            distance = math.sqrt((wcn[1] - wc[1]) ** 2 + (wcn[2] - wc[2]) ** 2)
+            # Distance between 29 and 57 (don't want adjacent strided slices)
+            if distance <= 57 and distance >= 29:
+                neighbors.append(oi)
+
+        # Only add positive wedges if adjacent ones are
+        if predictions[z, pos_cls] > threshold:
+
+            # Sure this is pos. But If none of this wedge's neighbors are positive, don't count it
+            pw = 0
+            for ind in neighbors:
+                if predictions[ind, pos_cls] > threshold:
+                    pw = 1
+                    break
         else:
             pw = 0
 

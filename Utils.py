@@ -243,12 +243,10 @@ def Viz_heatmap():
         regen_vol = sdl.load_NIFTY(regen_file)
 
         # Swap axes, currently its upside-down saggital
-        volume, mask, heatmap, regen_vol = np.swapaxes(volume, 0, 1), np.swapaxes(mask, 0, 1), np.swapaxes(heatmap, 0,
-                                                                                                           1), np.swapaxes(
-            regen_vol, 0, 1)
-        volume, mask, heatmap, regen_vol = np.swapaxes(volume, 1, 2), np.swapaxes(mask, 1, 2), np.swapaxes(heatmap, 1,
-                                                                                                           2), np.swapaxes(
-            regen_vol, 1, 2)
+        volume, mask = np.swapaxes(volume, 0, 1), np.swapaxes(mask, 0, 1)
+        heatmap, regen_vol = np.swapaxes(heatmap, 0, 1), np.swapaxes(regen_vol, 0, 1)
+        volume, mask = np.swapaxes(volume, 1, 2), np.swapaxes(mask, 1, 2),
+        heatmap, regen_vol = np.swapaxes(heatmap, 1, 2), np.swapaxes(regen_vol, 1, 2)
 
         # Normalize volume for heatmap overlay, we don't want negative numbers!!
         volume = volume.astype(np.float32)
@@ -258,15 +256,15 @@ def Viz_heatmap():
         # Generate overlay
         overlay = []
         for z in range(volume.shape[0]):
-            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z]))
+            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z], threshold=0.00001))
         overlay = np.asarray(overlay)
 
         # Save file names
         volume_gif_savefile = 'data/Viz/gifs/' + os.path.basename(file).replace('.nii.gz', '')
         # overlay_gif_savefile = volume_gif_savefile + '_FullOverlay'
         # overlay_vol_savefile = file.replace('vol', 'FullOverlay')
-        overlay_gif_savefile = volume_gif_savefile + '_Overlay'
-        overlay_vol_savefile = file.replace('vol', 'Overlay')
+        overlay_gif_savefile = volume_gif_savefile + '_Overlay2'
+        overlay_vol_savefile = file.replace('vol', 'Overlay2')
 
         # Save the gifs and volumes
         # sdl.save_gif_volume(volume, volume_gif_savefile, swapaxes=False)
@@ -286,6 +284,7 @@ def Make_graphs():
 
     Boxes made next to input vol		Half stride	dont matta
     Lung mask next to input			dont matta
+    256 = 8
     """
 
     # Accession numbers to use
@@ -335,18 +334,18 @@ def Make_graphs():
         # Generate heatmap
         overlay = []
         for z in range(volume.shape[0]):
-            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z]))
+            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z], threshold=0.00001))
         overlay = np.asarray(overlay)
 
         # Display for us cuz
         print(accno, file)
         sdd.display_volume(original)
-        sdd.display_volume(mask)
-        sdd.display_volume(boxes)
-        # sdd.display_volume(overlay)
+        # sdd.display_volume(mask)
+        # sdd.display_volume(boxes)
+        sdd.display_volume(overlay)
         del original, mask, heatmap, boxes, overlay
 
     plt.show()
 
 # Viz_heatmap()
-# Make_graphs()
+Make_graphs()
