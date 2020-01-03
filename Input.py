@@ -51,7 +51,7 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
 
         # Now load the volumes
         try:
-            volume, _, spacing, _, header = sdl.load_DICOM_3D(file, return_header=True, sort='Lung', display=True)
+            volume, header = sdl.load_DICOM_3D(file, return_header=True, sort='Lung', display=True)
         except:
             print ('Unable to load: ', file, '\n')
             failures[2] +=1
@@ -60,6 +60,7 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
         # Retreive pt info
         Accno = header['tags'].AccessionNumber
         MRN = header['tags'].PatientID
+        spacing = header['spacing']
         try: label_raw = int(labels[Accno]['Label'])
         except:
             failures[0] +=1
@@ -144,7 +145,10 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
 
                     # Save
                     data[index] = {'data': wedge, 'label': label, 'label_raw': label_raw, 'accno': Accno, 'MRN': MRN,
-                                   'file': file, 'sizexy': size[1], 'sizez': size[0]}
+                                   'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y, 'x': x,
+                                   'true_sizez': box_size[0], 'true_sizey': box_size[1], 'true_stridey': true_stride[1],
+                                   'true_stridez': true_stride[0], 'orig_volz': volume.shape[0],
+                                   'orig_voly': volume.shape[1]}
                     index += 1
 
                     # Garbage
@@ -174,8 +178,14 @@ def pre_proc_wedge_3d(dims=512, size=[10, 40, 40], stride=[7, 25, 25]):
                         wedge, _ = sdl.generate_box(volume, [z, y, x], box_size[1], z_overwrite=box_size[0])
                         wedge, _ = sdl.resample(wedge, spacing, new_spacing=[1, 1, 1])
                         wedge = sdl.resize_volume(wedge, np.int16, size[2], size[1], size[0])
+                        # Save
                         data[index] = {'data': wedge, 'label': label, 'label_raw': label_raw, 'accno': Accno,
-                                       'MRN': MRN, 'file': file, 'sizexy': size[1], 'sizez': size[0]}
+                                       'MRN': MRN, 'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y,
+                                       'x': x,
+                                       'true_sizez': box_size[0], 'true_sizey': box_size[1],
+                                       'true_stridey': true_stride[1],
+                                       'true_stridez': true_stride[0], 'orig_volz': volume.shape[0],
+                                       'orig_voly': volume.shape[1]}
                         index += 1
                         del wedge, wedge_check
             counts = index - counts
@@ -267,7 +277,10 @@ def load_protobuf(training=True):
         dataset = dataset.map(DataPreprocessor(training), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # Batch and prefetch
-    dataset = dataset.batch(FLAGS.batch_size, drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
+    if training:
+        dataset = dataset.batch(FLAGS.batch_size, drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
+    else:
+        dataset = dataset.batch(FLAGS.batch_size)
 
     # Make an initializable iterator
     iterator = dataset.make_initializable_iterator()
@@ -498,3 +511,4 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         del data, display
 
 # make_viz_egs(stride=[5, 20, 20])
+# pre_proc_wedge_3d()

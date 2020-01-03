@@ -1,22 +1,21 @@
-""" Training the network on a single GPU """
-
-from __future__ import absolute_import      # import multi line and Absolute/Relative
-from __future__ import division             # change the division operator to output float if dividing two integers
-from __future__ import print_function       # use the print function from python 3
+from __future__ import absolute_import  # import multi line and Absolute/Relative
+from __future__ import division  # change the division operator to output float if dividing two integers
+from __future__ import print_function  # use the print function from python 3
 
 import os
 import time
+import math
 import numpy as np
+import glob
 
 import ILDModel as network
 import tensorflow as tf
 import SODTester as SDT
 import SODLoader as SDL
 import SOD_Display as SDD
-import glob
 from pathlib import Path
 
-sdl= SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
+sdl = SDL.SODLoader(str(Path.home()) + '/PycharmProjects/Datasets/CT_Chest_ILD/')
 sdd = SDD.SOD_Display()
 
 _author_ = 'Simi'
@@ -30,44 +29,36 @@ tf.app.flags.DEFINE_string('data_dir', 'data/test/', """Path to the data directo
 tf.app.flags.DEFINE_integer('num_classes', 2, """ Number of classes""")
 tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures""")
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
-tf.app.flags.DEFINE_integer('repeats', 1, """How many epochs to repeat before shuffle""")
 
 # >5k example lesions total
-# tf.app.flags.DEFINE_integer('epoch_size', 20846, """Batch 1""")
-# tf.app.flags.DEFINE_integer('batch_size', 10423, """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_integer('epoch_size', 20524, """Batch 2""")
-# tf.app.flags.DEFINE_integer('batch_size', 10262, """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('epoch_size', 18381, """Batch 3""")
-tf.app.flags.DEFINE_integer('batch_size', 6127, """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_integer('epoch_size', 21171, """Batch 4""")
-# tf.app.flags.DEFINE_integer('batch_size', 7057, """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_integer('epoch_size', 21232, """Batch 5""")
-# tf.app.flags.DEFINE_integer('batch_size', 5308, """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_integer('epoch_size', 11961, """Batch Fin""")
-# tf.app.flags.DEFINE_integer('batch_size', 3987, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 114200, """Whole Batch""")
+# tf.app.flags.DEFINE_integer('batch_size', 5710, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 20790, """Batch 1""")
+tf.app.flags.DEFINE_integer('batch_size', 10395, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20341, """Batch 2""")
+# tf.app.flags.DEFINE_integer('batch_size', 10171, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 21454, """Batch 3""")
+# tf.app.flags.DEFINE_integer('batch_size', 10727, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20762, """Batch 4""")
+# tf.app.flags.DEFINE_integer('batch_size', 10381, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20976, """Batch 5""")
+# tf.app.flags.DEFINE_integer('batch_size', 10488, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 9878, """Batch Fin""")
+# tf.app.flags.DEFINE_integer('batch_size', 9878, """Number of images to process in a batch.""")
 
 # Testing parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Fixed1/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Fixed_Val1/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
 tf.app.flags.DEFINE_float('cutoff', 14.0, """cutoff for percent of ILD wedges""")
-tf.app.flags.DEFINE_string('test_files', '_3', """Files for testing have this name""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
 tf.app.flags.DEFINE_float('l2_gamma', 1e-3, """ The gamma value for regularization loss""")
 tf.app.flags.DEFINE_float('moving_avg_decay', 0.999, """ The decay rate for the moving average tracker""")
-tf.app.flags.DEFINE_float('loss_factor', 1.0, """Penalty for missing a class is this times more severe""")
-tf.app.flags.DEFINE_integer('loss_class', 1, """For classes this and above, apply the above loss factor.""")
 
-# Hyperparameters to control the optimizer
-tf.app.flags.DEFINE_float('learning_rate', 1e-3, """Initial learning rate""")
-tf.app.flags.DEFINE_float('beta1', 0.9, """ The beta 1 value for the adam optimizer""")
-tf.app.flags.DEFINE_float('beta2', 0.999, """ The beta 1 value for the adam optimizer""")
 
 # Define a custom training class
 def test():
-
-
     # Makes this the default graph where all ops will be added
     # with tf.Graph().as_default(), tf.device('/cpu:0'):
     with tf.Graph().as_default(), tf.device('/gpu:' + str(FLAGS.GPU)):
@@ -91,6 +82,7 @@ def test():
 
         # Labels
         labels = examples['label']
+        softmaxes = tf.nn.softmax(logits)
 
         # Initialize variables operation
         var_init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -118,84 +110,84 @@ def test():
             with tf.Session(config=config) as mon_sess:
 
                 # Print run info
-                print("*** Validation Run %s on GPU %s ****" % (FLAGS.RunInfo, FLAGS.GPU))
-
-                # Retreive the checkpoint
-                ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir+FLAGS.RunInfo)
-
-                # Initialize the variables
+                print("*** Vizualization Run %s on GPU %s ****" % (FLAGS.RunInfo, FLAGS.GPU))
+                ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir + FLAGS.RunInfo)
                 mon_sess.run(var_init)
-
-                # Initialize iterator
                 mon_sess.run(iterator.initializer)
 
                 if ckpt and ckpt.model_checkpoint_path:
-
-                    # Restore the model
                     saver.restore(mon_sess, ckpt.model_checkpoint_path)
-
-                    # Extract the epoch
                     Epoch = ckpt.model_checkpoint_path.split('/')[-1].split('_')[-1]
-
                 else:
-                    print ('No checkpoint file found')
                     break
 
                 # Initialize the step counter
                 step = 0
-
-                # Set the max step count
                 max_steps = int(FLAGS.epoch_size / FLAGS.batch_size)
 
                 # Tester instance
                 sdt = SDT.SODTester(True, False)
-                label_track, logit_track, pt_track = [], [], []
+
+                # Dictionary of arrays merging function
+                def _merge_dicts(dict1={}, dict2={}):
+                    ret_dict = {}
+                    for key, index in dict1.items():
+                        ret_dict[key] = np.concatenate([dict1[key], dict2[key]])
+                    return ret_dict
 
                 try:
                     while step < max_steps:
 
                         # Load some metrics for testing
-                        lbl1, logtz, pt = mon_sess.run([labels, logits, examples['accno']], feed_dict={phase_train: False})
+                        _labels, _logits, _accnos, _examples, _softmax = mon_sess.run(
+                            [labels, logits, examples['accno'], examples, softmaxes],
+                            feed_dict={phase_train: False})
 
-                        # If first step then create the entry
+                        # Combine cases
+                        del _examples['data']
                         if step == 0:
-                            label_track = np.copy(lbl1)
-                            logit_track = np.copy(logtz)
-                            pt_track = np.copy(pt)
+                            label_track = np.copy(_labels)
+                            softmax_track = np.copy(_softmax)
+                            accnos_track = np.copy(_accnos)
+                            examples_track = dict(_examples)
                         else:
-                            label_track = np.concatenate([label_track, lbl1])
-                            logit_track = np.concatenate([logit_track, logtz])
-                            pt_track = np.concatenate([pt_track, pt])
+                            label_track = np.concatenate([label_track, _labels])
+                            softmax_track = np.concatenate([softmax_track, _softmax])
+                            accnos_track = np.concatenate([accnos_track, _accnos])
+                            examples_track = _merge_dicts(examples_track, _examples)
 
                         # Increment step
+                        del _examples
                         step += 1
 
-                except tf.errors.OutOfRangeError:
-                    print('Done with Training - Epoch limit reached')
+                except Exception as e:
+                    print(e)
 
                 finally:
 
                     # Calculate final MAE and ACC
-                    # Combine predictions
-                    data, lbl, logitz = combine_predictions_thresh(label_track, logit_track, pt_track, FLAGS.epoch_size,
-                                                                   percent=FLAGS.cutoff)
-                    sdt.calculate_metrics(logitz, lbl, 1, step)
+                    _data, _labels, _logits = combine_predictions_2(label_track, softmax_track, accnos_track,
+                                                                    FLAGS.epoch_size,
+                                                                    percent=FLAGS.cutoff, examples=examples_track)
+
+                    sdt.calculate_metrics(_logits, _labels, 1, step)
                     sdt.retreive_metrics_classification(Epoch, True)
                     print('------ Current Best AUC: %.4f (Epoch: %s) --------' % (best_MAE, best_epoch))
 
                     # Lets save runs that perform well
                     if sdt.AUC >= best_MAE:
-
                         # Save the checkpoint
                         print(" ---------------- SAVING THIS ONE %s", ckpt.model_checkpoint_path)
 
                         # Define the filenames
-                        checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo, ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC)))
-                        csv_file = os.path.join('testing/' + FLAGS.RunInfo, ('%s_E_%s_AUC_%0.2f.csv' % (FLAGS.RunInfo[:-1], Epoch, sdt.AUC)))
+                        checkpoint_file = os.path.join('testing/' + FLAGS.RunInfo,
+                                                       ('Epoch_%s_AUC_%0.3f' % (Epoch, sdt.AUC)))
+                        csv_file = os.path.join('testing/' + FLAGS.RunInfo,
+                                                ('%s_E_%s_AUC_%0.2f.csv' % (FLAGS.RunInfo[:-1], Epoch, sdt.AUC)))
 
                         # Save the checkpoint
                         saver.save(mon_sess, checkpoint_file)
-                        sdl.save_Dict_CSV(data, csv_file)
+                        sdl.save_Dict_CSV(_data, csv_file)
 
                         # Save a new best MAE
                         best_MAE = sdt.AUC
@@ -208,10 +200,7 @@ def test():
             try:
                 if int(Epoch) > 299 in Epoch: break
             except:
-                if '405' in Epoch: break
-
-            # # TODO: Test
-            # break
+                if '300' in Epoch: break
 
             # Print divider
             print('-' * 70)
@@ -222,16 +211,11 @@ def test():
 
             # Sleep if no changes
             while filecheck == newfilec:
-
-                # Sleep an amount of time proportional to the epoch size
                 time.sleep(10)
-
-                # Recheck the folder for changes
-                newfilec = glob.glob(FLAGS.train_dir+FLAGS.RunInfo + '*')
+                newfilec = glob.glob(FLAGS.train_dir + FLAGS.RunInfo + '*')
 
 
-
-def main(argv=None):  # pylint: disable=unused-argument
+def main(argv=None):
     time.sleep(0)
     if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
@@ -239,7 +223,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     test()
 
 
-def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, percent=8.4, pos_cls=1, threshold=0.5):
+def combine_predictions_2(ground_truth, softmax, unique_ID, batch_size, percent=14, pos_cls=1, threshold=0.5,
+                          examples=None):
     """
     Combines multi parametric predictions into one group
     :param ground_truth: raw labels from sess.run
@@ -249,6 +234,7 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
     :param percent: The percent above this indicate a positive
     :param pos_cls: the positive class
     :param threshold: Softmax threshold
+    :param examples: The examples with xyz data
     :return: recombined matrix, label array, logitz array
     """
 
@@ -259,16 +245,43 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
     # The dictionary to return
     data = {}
 
-    # Get the softmax scores
-    sdt = SDT.SODTester(1, 0)
-    predictions = sdt.calc_softmax_old(predictions)
-
-    # add up the predictions
+    # Loop through every wedge
     for z in range(batch_size):
 
-        # Calc
+        # Get the X, y and Z coordinates of this wedge and which patient
+        wc = [examples['z'][z], examples['y'][z], examples['x'][z]]
+        accno = examples['accno'][z]
+
+        # Get all the wedge indices for this patient
+        _indices = np.squeeze(np.argwhere(examples['accno'] == accno))
+
+        # Further reduce the indices to compare by keeping the same slice or adjacent slice only in z
+        indices = []
+        for i in range(len(_indices)):
+            oi = _indices[i]
+            diff = abs(examples['z'][oi] - wc[0])
+            if diff <= 11:
+                indices.append(oi)
+
+        # Get the indices of only the adjacent wedges in 2D. With 40 pixel separation, 57 is the cutoff
+        neighbors = []
+        for i in range(len(indices)):
+            oi = indices[i]
+            wcn = [examples['z'][oi], examples['y'][oi], examples['x'][oi]]
+            distance = math.sqrt((wcn[1] - wc[1]) ** 2 + (wcn[2] - wc[2]) ** 2)
+            # Distance between 29 and 57 (don't want adjacent strided slices)
+            if distance <= 57 and distance >= 29:
+                neighbors.append(oi)
+
+        # Only add positive wedges if adjacent ones are
         if predictions[z, pos_cls] > threshold:
-            pw = 1
+
+            # Sure this is pos. But If none of this wedge's neighbors are positive, don't count it
+            pw = 0
+            for ind in neighbors:
+                if predictions[ind, pos_cls] > threshold:
+                    pw = 1
+                    break
         else:
             pw = 0
 
@@ -309,7 +322,8 @@ def combine_predictions_thresh(ground_truth, softmax, unique_ID, batch_size, per
         dic['ID'] = idx
 
         # TODO: Testing
-        print('Lbl: %s, NPW: %.2f %% (%s), Tot: %s' % (dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
+        print('Acc: %s Lbl: %s, NPW: %.2f %% (%s), Tot: %s' % (
+            idx, dic['label'], dic['Pos_Percent'], dic['pw'], dic['total']))
 
     return data, np.squeeze(labba), np.squeeze(logga)
 

@@ -34,8 +34,8 @@ tf.app.flags.DEFINE_integer('box_dims', 40, """dimensions of the input pictures"
 tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictures""")
 
 # >5k example lesions total
-tf.app.flags.DEFINE_integer('epoch_size', 10143, """Batch 3""")
-tf.app.flags.DEFINE_integer('batch_size', 10143, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 114200, """Batch 3""")
+tf.app.flags.DEFINE_integer('batch_size', 5710, """Number of images to process in a batch.""")
 
 # Testing parameters
 tf.app.flags.DEFINE_string('RunInfo', 'Fixed1/', """Unique file name for this training run""")
@@ -118,7 +118,13 @@ def test():
 
                 # Tester instance
                 sdt = SDT.SODTester(True, False)
-                label_track, logit_track, pt_track = [], [], []
+
+                # Dictionary of arrays merging function
+                def _merge_dicts(dict1={}, dict2={}):
+                    ret_dict = {}
+                    for key, index in dict1.items():
+                        ret_dict[key] = np.concatenate([dict1[key], dict2[key]])
+                    return ret_dict
 
                 try:
                     while step < max_steps:
@@ -128,17 +134,32 @@ def test():
                             [labels, logits, examples['accno'], examples, softmaxes],
                             feed_dict={phase_train: False})
 
+                        # Combine cases
+                        del _examples['data']
+                        if step == 0:
+                            label_track = np.copy(_labels)
+                            softmax_track = np.copy(_softmax)
+                            accnos_track = np.copy(_accnos)
+                            examples_track = dict(_examples)
+                        else:
+                            label_track = np.concatenate([label_track, _labels])
+                            softmax_track = np.concatenate([softmax_track, _softmax])
+                            accnos_track = np.concatenate([accnos_track, _accnos])
+                            examples_track = _merge_dicts(examples_track, _examples)
+
                         # Increment step
+                        del _examples
                         step += 1
 
-                except tf.errors.OutOfRangeError:
-                    print('Done with Training - Epoch limit reached')
+                except Exception as e:
+                    print(e)
 
                 finally:
 
                     # Calculate final MAE and ACC
-                    _data, _labels, _logits = combine_predictions_2(_labels, _softmax, _accnos, FLAGS.epoch_size,
-                                                                    percent=FLAGS.cutoff, examples=_examples)
+                    _data, _labels, _logits = combine_predictions_2(label_track, softmax_track, accnos_track,
+                                                                    FLAGS.epoch_size,
+                                                                    percent=FLAGS.cutoff, examples=examples_track)
 
                     # Save CSV
                     sdl.save_Dict_CSV(_data, 'filtered_results.csv')

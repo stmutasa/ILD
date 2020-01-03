@@ -83,5 +83,12 @@ TESTING SET: (512x512x3 files) Aka no Z dimensions
 
 ratio = [0.33, 0.67]
 
+Reprocess:
+1 - 40 Patients complete, 20790 Wedges saved (10395)
+2 - 80 Patients complete, 41131 Wedges saved (20341 - 10171)
+3 - 120 Patients complete, 62585 Wedges saved (21454 - 10727)
+4 - 160 Patients complete, 83347 Wedges saved (20762 - 10381)
+5 - 200 Patients complete, 104323 Wedges saved (20976 - 10488)
+Fin - 221 patients complete, 114201 images saved (9878 - 9878)
 
-
+221 Patients saved, 57 failed[No label, Label out of range, Failed load] [37, 19, 1]
