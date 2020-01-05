@@ -30,10 +30,10 @@ tf.app.flags.DEFINE_integer('num_classes', 2, """Number of classes""")
 # Define some of the immutable variables
 tf.app.flags.DEFINE_integer('num_epochs', 300, """Number of epochs to run""")
 tf.app.flags.DEFINE_integer('epoch_size', 114000, """How many examples""")
-tf.app.flags.DEFINE_integer('print_interval', 10, """How often to print a summary to console during training""")
-tf.app.flags.DEFINE_integer('checkpoint_interval', 15, """How many Epochs to wait before saving a checkpoint""")
+tf.app.flags.DEFINE_integer('print_interval', 9, """How often to print a summary to console during training""")
+tf.app.flags.DEFINE_integer('checkpoint_interval', 30, """How many Epochs to wait before saving a checkpoint""")
 tf.app.flags.DEFINE_integer('batch_size', 1024, """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('repeats', 5, """How many epochs to repeat before shuffle""")
+tf.app.flags.DEFINE_integer('repeats', 10, """How many epochs to repeat before shuffle""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")

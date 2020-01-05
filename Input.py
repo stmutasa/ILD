@@ -255,7 +255,7 @@ def load_protobuf(training=True):
 
         # Large shuffle, repeat for 100 epochs then parse the labels only
         dataset = dataset.shuffle(buffer_size=FLAGS.epoch_size)
-        dataset = dataset.repeat(100)
+        dataset = dataset.repeat(FLAGS.repeats)
         dataset = dataset.map(_parse_labels, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
         # Now we have the labels, undersample then oversample.
