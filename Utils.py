@@ -15,6 +15,8 @@ import csv
 import os
 import cv2
 import random
+import pickle
+import re
 
 # Define the data directory to use
 home_dir = str(Path.home()) + '/Code/Datasets/CT_Chest_ILD/'
@@ -347,5 +349,165 @@ def Make_graphs():
 
     plt.show()
 
+
+def save_val_vols():
+    """
+    Helper function to sort the raw downloaded dicoms into a folder structure that makes sense
+    MRN/Accno/Series_Time.nii.gz
+    MRN/Accno/Series_Time.gif
+    MRN/Accno/Series_Time.json
+    :return:
+    """
+
+    # First retreive the filenames
+    path = home_dir + 'Val/'
+    folders = sdl.retreive_filelist('*', path=path, include_subfolders=True)
+    shuffle(folders)
+
+    # Variables to save
+    patient, study = 0, 0
+
+    # Load the images and filter them
+    for folder in folders:
+
+        try:
+            vols = sdl.load_DICOM_VOLS(folder)
+            key = next(iter(vols))
+            header = vols[key]['header']
+        except Exception as e:
+            print('Image Error: %s,  --- Folder: %s' % (e, folder))
+            continue
+
+        try:
+            Accno = header['tags'].AccessionNumber
+            MRN = header['tags'].PatientID
+        except Exception as e:
+            # Print error then make a dummy header
+            print('Header Error: %s,  --- Folder: %s' % (e, folder))
+            Accno = folder.split('/')[-2]
+            continue
+
+        """
+         TODO: Sort the folders and save as niftis
+        """
+
+        for series, dict in vols.items():
+
+            # Convert to numpy
+            volume = dict['volume']
+            volume = np.asarray(volume, np.int16)
+            # spacing = str(volume.shape[0]) + '-' + str(dict['spacing'][0])
+            spacing = str(dict['spacing']).replace(' ', '-')
+            spacing = re.sub('\-\-+', '-', spacing)
+
+            # Skip obvious scout and other small series
+            if volume.shape[0] <= 20: continue
+
+            # Get savefile names
+            series = series.replace('(', '').replace(')', '').replace('/', '')
+            save_root = path.replace('Val', 'Ann')
+            fname_vol = ('%s%s_%s_%s_%s.nii.gz' % (save_root, Accno, MRN, series, spacing))
+
+            # Create the root folder
+            if not os.path.exists(os.path.dirname(fname_vol)): os.mkdir(os.path.dirname(fname_vol))
+
+            # Save the gif and volume
+            print('Saving: ', os.path.basename(fname_vol))
+
+            try:
+                sdl.save_volume(volume, fname_vol, compress=True)
+                # with open(fname_vol, 'wb') as fp:
+                #     pickle.dump(dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+            except Exception as e:
+                print('\nSaving Error %s: %s,  --- Folder: %s' % (volume.shape, e, folder))
+                continue
+
+            # Increment
+            study += 1
+            del volume
+
+        # Garbage
+        patient += 1
+        del vols
+
+
+def save_val_vols_PhillipsDL():
+    """
+    Helper function to sort the raw PHILLIPS PACS downloaded dicoms into a folder structure that makes sense
+    MRN/Accno/Series_Time.nii.gz
+    MRN/Accno/Series_Time.gif
+    MRN/Accno/Series_Time.json
+    :return:
+    """
+
+    # Path for this function
+    path = home_dir + 'Val_Phillips/'
+
+    # First retreive lists of the the filenames
+    folders = list()
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        folders += [os.path.join(dirpath, dir) for dir in dirnames]
+    folders = [x for x in folders if 'OBJ_0' in x]
+
+    # Variables to save
+    patient, study = 0, 0
+
+    # Load the images and filter them
+    for folder in folders:
+
+        # Load the DICOMs
+        try:
+            volume, header = sdl.load_DICOM_3D(folder, return_header=True)
+        except Exception as e:
+            print('Image Error: %s,  --- Folder: %s' % (e, folder))
+            continue
+
+        try:
+            Accno = header['tags'].AccessionNumber
+            MRN = header['tags'].PatientID
+        except Exception as e:
+            print('Header Error: %s,  --- Folder: %s' % (e, folder))
+            continue
+
+        """
+         TODO: Sort the folders and save as niftis
+        """
+
+        # Convert to numpy
+        spacing = str(header['spacing']).replace(' ', '-')
+        spacing = re.sub('\-\-+', '-', spacing)
+        series = header['tags'].SeriesDescription
+
+        # Skip obvious scout and other small series
+        if volume.shape[0] <= 20: continue
+
+        # Get savefile names
+        series = series.replace('(', '').replace(')', '').replace('/', '')
+        save_root = path.replace('Val_Phillips', 'Ann')
+        fname_vol = ('%s%s_%s_%s_%s.nii.gz' % (save_root, Accno, MRN, series, spacing))
+
+        # Create the root folder
+        if not os.path.exists(os.path.dirname(fname_vol)): os.mkdir(os.path.dirname(fname_vol))
+
+        # Save the gif and volume
+        print('Saving: ', os.path.basename(fname_vol))
+        save_dict = {'header': header['tags'], 'volume': volume, 'spacing': header['spacing']}
+
+        try:
+            sdl.save_volume(volume, fname_vol, compress=True)
+            # with open(fname_vol, 'wb') as fp:
+            #     pickle.dump(save_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print('\nSaving Error %s: %s,  --- Folder: %s' % (volume.shape, e, folder))
+            continue
+
+        # Increment
+        study += 1
+        patient += 1
+        del volume
+
+
 # Viz_heatmap()
-Make_graphs()
+# Make_graphs()
+save_val_vols()
+save_val_vols_PhillipsDL()

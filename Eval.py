@@ -41,15 +41,17 @@ tf.app.flags.DEFINE_integer('network_dims', 40, """dimensions of the input pictu
 # tf.app.flags.DEFINE_integer('batch_size', 10727, """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_integer('epoch_size', 20762, """Batch 4""")
 # tf.app.flags.DEFINE_integer('batch_size', 10381, """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('epoch_size', 20976, """Batch 5""")
-tf.app.flags.DEFINE_integer('batch_size', 10488, """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_integer('epoch_size', 20976, """Batch 5""")
+# tf.app.flags.DEFINE_integer('batch_size', 10488, """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_integer('epoch_size', 9878, """Batch Fin""")
 # tf.app.flags.DEFINE_integer('batch_size', 9878, """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('epoch_size', 94932, """Validation""")
+tf.app.flags.DEFINE_integer('batch_size', 7911, """Number of images to process in a batch.""")
 
 # Testing parameters
-tf.app.flags.DEFINE_string('RunInfo', 'Fixed_Val5_2/', """Unique file name for this training run""")
+tf.app.flags.DEFINE_string('RunInfo', 'Fixed_Full_Final/', """Unique file name for this training run""")
 tf.app.flags.DEFINE_integer('GPU', 1, """Which GPU to use""")
-tf.app.flags.DEFINE_float('cutoff', 14.0, """cutoff for percent of ILD wedges""")
+tf.app.flags.DEFINE_float('cutoff', 16.5, """cutoff for percent of ILD wedges""")
 
 # Hyperparameters:
 tf.app.flags.DEFINE_float('dropout_factor', 0.5, """ Keep probability""")
@@ -216,7 +218,7 @@ def test():
 
 
 def main(argv=None):
-    time.sleep(90)
+    time.sleep(0)
     if tf.gfile.Exists('testing/' + FLAGS.RunInfo):
         tf.gfile.DeleteRecursively('testing/' + FLAGS.RunInfo)
     tf.gfile.MakeDirs('testing/' + FLAGS.RunInfo)
