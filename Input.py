@@ -682,10 +682,10 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         counts = index - counts
 
         # Save volume and mask
-        # vol_path = 'data/Viz/scans/%s_vol.nii.gz' % accno
-        # mask_path = 'data/Viz/scans/%s_mask.nii.gz' % accno
-        # sdl.save_volume(volume, vol_path)
-        # sdl.save_volume(mask.astype(np.int16), mask_path)
+        vol_path = 'data/Viz/scans/%s_vol.nii.gz' % accno
+        mask_path = 'data/Viz/scans/%s_mask.nii.gz' % accno
+        sdl.save_volume(volume, vol_path)
+        sdl.save_volume(mask.astype(np.int16), mask_path)
         print('\n***** Pt %s with %s counts, Saved vol and mask %s' % (accno, counts, volume.shape))
 
         display.append(counts)
@@ -704,6 +704,7 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         sdl.save_dict_filetypes(data[0], data_root='data/Viz/filetypes')
         del data, display
 
-# make_viz_egs(stride=[5, 20, 20])
+
+make_viz_egs(stride=[5, 20, 20])
 # pre_proc_wedge_3d()
 # pre_proc_wedge_val()
