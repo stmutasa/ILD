@@ -705,6 +705,153 @@ def make_viz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
         del data, display
 
 
-make_viz_egs(stride=[5, 20, 20])
+# Same as above but for the validation files
+def make_VALviz_egs(dims=512, size=[10, 40, 40], stride=[10, 40, 40]):
+    """
+    Makes wedges for visualization
+    We need to save extra information to make this pretty
+    """
+
+    # First retreive the filenames
+    path = home_dir + 'Ann/'
+    filenames = sdl.retreive_filelist('nii.gz', path=path, include_subfolders=True)
+    shuffle(filenames)
+
+    # retrieve the labels
+    label_file = sdl.retreive_filelist('csv', path=home_dir, include_subfolders=True)[1]
+    labels = sdl.load_CSV_Dict('Accno', label_file)
+
+    # global variables
+    index, pts, per = 0, 0, 0
+    data, track = {}, {}
+    display, failures = [], [0, 0, 0]
+
+    # Loop through all the files
+    for file in filenames:
+
+        # Now load the volumes
+        try:
+            volume = sdl.load_NIFTY(file, reshape=False)
+            header = os.path.basename(file)
+        except:
+            print('Unable to load: ', file, '\n')
+            failures[2] += 1
+            continue
+
+        # Retreive pt info
+        Accno = header.split('_')[0]
+        MRN = header.split('_')[1]
+        spacing = header.split('[')[1].split(']')[0]
+        spacing = np.asarray(spacing.split('-'), np.float32)
+        try:
+            label = int(labels[Accno]['Lbl'])
+        except:
+            failures[0] += 1
+            del volume
+            continue
+
+        # Display volumes accidentally loaded as coronal
+        if volume.shape[1] != volume.shape[2]:
+            print('\n ********* Pt %s weird shaped %s\n' % (Accno, volume.shape))
+
+        # Fix strange z axis spacing
+        if spacing[0] > 10: spacing[0] = 1
+
+        # Resize the volume
+        if volume.shape[1] != dims:
+            volume = sdl.resize_volume(volume, np.int16, dims, dims)
+
+        # Generate a lung mask
+        mask = sdl.create_lung_mask(volume, close=12, dilate=15)
+
+        # window the lungs
+        volume = sdl.window_image(volume, -600, 750)
+
+        # Calculate the inferior extent of the mask
+        for slice in range(mask.shape[0]):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                inf = slice
+                break
+
+        # Calculate superior extent
+        for slice in range(mask.shape[0] - 1, 0, -1):
+
+            # Check if this slice of the mask has label
+            slice_img = mask[slice]
+            if np.sum(slice_img) > 0:
+                sup = slice
+                break
+
+        # If the superior extent is max, we likely have trachea, add 10 mm
+        if sup > volume.shape[0] - 3:
+            sup = int(sup - 10 // spacing[0])
+
+        # For counting
+        counts = index
+
+        # # Loop through and create the wedges
+        # for z in range(inf, midlung_slice, true_stride[0]):
+        #     for y in range(0, volume.shape[1], true_stride[1]):
+        #         for x in range(0, volume.shape[2], true_stride[2]):
+        #
+        #             # Create a segment wedge here
+        #             wedge_check, _ = sdl.generate_box(mask, [z, y, x], box_size[1], z_overwrite=box_size[0])
+        #
+        #             # Check if there is > 50% lung here, if not, discard and continue
+        #             ratio = sdl.return_nonzero_pixel_ratio(wedge_check, 1, True)
+        #             if (ratio < 0.5) or (ratio > 0.99999): continue
+        #
+        #             # Sucess, make a wedge!
+        #             wedge, _ = sdl.generate_box(volume, [z, y, x], box_size[1], z_overwrite=box_size[0])
+        #
+        #             # Resample the wedge
+        #             wedge, _ = sdl.resample(wedge, spacing, new_spacing=[1, 1, 1])
+        #             wedge = sdl.resize_volume(wedge, np.int16, size[2], size[1], size[0])
+        #
+        #             # Save
+        #             data[index] = {'data': wedge, 'label': label, 'label_raw': label, 'accno': Accno, 'MRN': MRN,
+        #                            'file': file, 'sizexy': size[1], 'sizez': size[0], 'z': z, 'y': y, 'x': x,
+        #                            'true_sizez': box_size[0], 'true_sizey': box_size[1], 'true_stridey': true_stride[1],
+        #                            'true_stridez': true_stride[0], 'orig_volz': volume.shape[0],
+        #                            'orig_voly': volume.shape[1]}
+        #             index += 1
+        #
+        #             # Garbage
+        #             del wedge, wedge_check
+
+        # Done with patient, if there are no wedges saved, reduce the stride
+        counts = index - counts
+
+        # Save volume and mask
+        vol_path = 'data/Viz/scans/%s_vol.nii.gz' % Accno
+        mask_path = 'data/Viz/scans/%s_mask.nii.gz' % Accno
+        sdl.save_volume(volume, vol_path)
+        sdl.save_volume(mask.astype(np.int16), mask_path)
+        print('\n***** Pt %s with %s counts, Saved vol and mask %s' % (Accno, counts, volume.shape))
+
+        display.append(counts)
+        pts += 1
+        del volume, mask
+
+        # break after 50 pts
+        # if pts % 50 == 0: break
+
+    # All patients done, print the summary message
+    print('%s Patients saved, %s failed[No label, Label out of range, Failed load] %s' % (pts, sum(failures), failures))
+
+    # # Now create a final protocol buffer
+    # print('Creating final protocol buffer')
+    # if data:
+    #     print('%s patients complete, %s images saved' % (pts, index))
+    #     print('Patients in this protobuf: \n%s' % display)
+    #     sdl.save_tfrecords(data, 1, file_root='data/Viz/Viz_Egs')
+    #     sdl.save_dict_filetypes(data[0], data_root='data/Viz/filetypes')
+    #     del data, display
+
+# make_viz_egs(stride=[5, 20, 20])
+# make_VALviz_egs(stride=[10, 20, 20])
 # pre_proc_wedge_3d()
 # pre_proc_wedge_val()

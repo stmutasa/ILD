@@ -192,6 +192,7 @@ def save_csvs():
 
 
 def make_gifs():
+
     """
     Saves gifs of the overlaid masks and actual volumes
     """
@@ -200,6 +201,7 @@ def make_gifs():
     filenames = [x for x in filenames if 'vol' in x]
 
     for file in filenames:
+
         # Load volume and mask
         volume = sdl.load_NIFTY(file)
         mask_file = file.replace('vol', 'mask')
@@ -224,6 +226,7 @@ def make_gifs():
 
 
 def Viz_heatmap():
+
     """
     Vizualize the generated heatmaps
     """
@@ -277,30 +280,17 @@ def Viz_heatmap():
 
 
 def Make_graphs():
+
     """
     Make a myriad of graphs for display:
-    Net and Human Right			3022266	2831875	2554416
-    Net and Human Wrong			3158609	2474151
-    Net Right, Human Wrong			2930847
-    Human Right Net Wrong			2079411
-
     Boxes made next to input vol		Half stride	dont matta
     Lung mask next to input			dont matta
     256 = 8
     """
 
-    # Accession numbers to use
-    d1 = [3022266, 2831875, 2554416]
-    d2 = [3158609, 2474151]
-    d3 = [2930847]
-    d4 = [2079411]
-
-    filenames = sdl.retreive_filelist('nii.gz', include_subfolders=True, path='data/Viz')
+    filenames = sdl.retreive_filelist('nii.gz', include_subfolders=True, path='data/Viz/')
     filenames = [x for x in filenames if 'vol' in x]
-    random.shuffle(filenames)
-
-    # Desired grouping
-    des = d4
+    index = 0
 
     for file in filenames:
 
@@ -312,7 +302,7 @@ def Make_graphs():
         original = sdl.load_NIFTY(file)
         mask_file = file.replace('vol', 'mask')
         mask = sdl.load_NIFTY(mask_file)
-        heatmap_file = file.replace('vol', 'preds')
+        heatmap_file = file.replace('vol', 'preds_full')
         try:
             heatmap = sdl.load_NIFTY(heatmap_file)
         except:
@@ -335,22 +325,30 @@ def Make_graphs():
 
         # Generate heatmap
         overlay = []
-        for z in range(volume.shape[0]):
-            overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z], threshold=0.00001))
-        overlay = np.asarray(overlay)
+        try:
+            for z in range(volume.shape[0]):
+                overlay.append(sdd.return_heatmap_overlay(volume[z], heatmap[z], threshold=0.00001))
+            overlay = np.asarray(overlay)
+        except:
+            print('Failed: ', file)
+            del original, mask, heatmap, boxes, overlay
+            continue
 
         # Display for us cuz
         print(accno, file)
-        sdd.display_volume(original)
+        # sdd.display_volume(original)
         # sdd.display_volume(mask)
         # sdd.display_volume(boxes)
         sdd.display_volume(overlay)
         del original, mask, heatmap, boxes, overlay
+        index += 1
+        if index % 25 == 0: plt.show()
 
     plt.show()
 
 
 def save_val_vols():
+
     """
     Helper function to sort the raw downloaded dicoms into a folder structure that makes sense
     MRN/Accno/Series_Time.nii.gz
@@ -508,6 +506,6 @@ def save_val_vols_PhillipsDL():
 
 
 # Viz_heatmap()
-# Make_graphs()
-save_val_vols()
-save_val_vols_PhillipsDL()
+Make_graphs()
+# save_val_vols()
+# save_val_vols_PhillipsDL()

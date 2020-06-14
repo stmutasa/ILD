@@ -428,7 +428,10 @@ def merge_boxes(exs, preds):
             try:
                 img_vols[_st[0]:_fn[0], _st[1]:(_fn[1] + 1), _st[2]:(_fn[2] + 1)] = wedge
             except:
-                img_vols[_st[0]:_fn[0], _st[1]:(_fn[1] - 1), _st[2]:(_fn[2] - 1)] = wedge
+                try:
+                    img_vols[_st[0]:_fn[0], _st[1]:(_fn[1] - 1), _st[2]:(_fn[2] - 1)] = wedge
+                except:
+                    continue
 
         volume_made = True
         wcnt += 1
